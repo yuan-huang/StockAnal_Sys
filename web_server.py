@@ -96,7 +96,7 @@ if 'analyzer' not in globals():
 fundamental_analyzer = FundamentalAnalyzer()
 capital_flow_analyzer = CapitalFlowAnalyzer()
 scenario_predictor = ScenarioPredictor(analyzer, os.getenv('OPENAI_API_KEY'), os.getenv('OPENAI_API_MODEL'))
-stock_qa = StockQA(analyzer, os.getenv('OPENAI_API_KEY'), os.getenv('OPENAI_API_MODEL'))
+stock_qa = StockQA(analyzer, os.getenv('OPENAI_API_KEY'))
 risk_monitor = RiskMonitor(analyzer)
 index_industry_analyzer = IndexIndustryAnalyzer(analyzer)
 industry_analyzer = IndustryAnalyzer()
