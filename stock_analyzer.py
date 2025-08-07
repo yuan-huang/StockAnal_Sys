@@ -621,7 +621,7 @@ class StockAnalyzer:
                 # 如果JSON解析失败，尝试从原始内容中匹配市场情绪
                 sentiment_pattern = r'(bullish|neutral|bearish)'
                 sentiment_match = re.search(sentiment_pattern, news_data.get('original_content', ''))
-                
+
                 if sentiment_match:
                     sentiment_map = {
                         'bullish': 'bullish',
@@ -629,7 +629,7 @@ class StockAnalyzer:
                         'bearish': 'bearish'
                     }
                     sentiment = sentiment_map.get(sentiment_match.group(1), 'neutral')
-                    
+
                     if sentiment == 'bullish' and action in ['hold', 'cautious_hold']:
                         action = 'cautious_buy'
                         sentiment_adjustment = "（市场氛围积极，可适当提高仓位）"
@@ -637,7 +637,7 @@ class StockAnalyzer:
                         action = 'hold'
                         sentiment_adjustment = "（市场氛围悲观，建议等待更好买点）"
 
-                    
+
             # 4. Technical indicators adjustment (Dimension 2: "Peak Detection System")
             technical_adjustment = ""
             if technical_data:
@@ -837,6 +837,9 @@ class StockAnalyzer:
             import threading
             import json
             import openai
+            from openai import OpenAI
+            
+            client = OpenAI(api_key=self.openai_api_key)
             import requests
 
             result_queue = queue.Queue()
@@ -1049,38 +1052,36 @@ class StockAnalyzer:
             def call_api():
                 try:
                     messages = [{"role": "user", "content": query}]
-                    
+
                     # 第一步：调用模型，让它决定使用工具
-                    response = openai.ChatCompletion.create(
-                        model=self.function_call_model,
-                        messages=messages,
-                        tools=tools,
-                        tool_choice="auto",
-                        temperature=0.7,
-                        max_tokens=1000,
-                        stream=False,
-                        timeout=120
-                    )
-                    
+                    response = client.chat.completions.create(model=self.function_call_model,
+                    messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
+                    temperature=0.7,
+                    max_tokens=1000,
+                    stream=False,
+                    timeout=120)
+
                     # 检查是否有工具调用
-                    message = response["choices"][0]["message"]
-                    
+                    message = response.choices[0].message
+
                     if "tool_calls" in message:
                         # 处理工具调用
                         tool_calls = message["tool_calls"]
-                        
+
                         # 准备新的消息列表，包含工具调用结果
                         messages.append(message)  # 添加助手的消息
-                        
+
                         for tool_call in tool_calls:
                             function_name = tool_call["function"]["name"]
                             function_args = json.loads(tool_call["function"]["arguments"])
-                            
+
                             # 执行搜索
                             if function_name == "search_news":
                                 search_query = function_args.get("query", f"{stock_name} {stock_code} 新闻")
                                 function_response = search_news(search_query)
-                                
+
                                 # 添加工具响应到消息
                                 messages.append({
                                     "tool_call_id": tool_call["id"],
@@ -1088,22 +1089,20 @@ class StockAnalyzer:
                                     "name": function_name,
                                     "content": json.dumps(function_response, ensure_ascii=False)
                                 })
-                        
+
                         # 第二步：让模型处理搜索结果并生成最终响应
-                        second_response = openai.ChatCompletion.create(
-                            model=self.news_model,
-                            messages=messages,
-                            temperature=0.7,
-                            max_tokens=4000,
-                            stream=False,
-                            timeout=120
-                        )
-                        
+                        second_response = client.chat.completions.create(model=self.news_model,
+                        messages=messages,
+                        temperature=0.7,
+                        max_tokens=4000,
+                        stream=False,
+                        timeout=120)
+
                         result_queue.put(second_response)
                     else:
                         # 如果模型没有选择使用工具，直接使用第一次响应
                         result_queue.put(response)
-                        
+
                 except Exception as e:
                     result_queue.put(e)
 
@@ -1146,11 +1145,11 @@ class StockAnalyzer:
                 # 确保数据结构完整
                 if not isinstance(news_data, dict):
                     news_data = {}
-                
+
                 for key in ['news', 'announcements', 'industry_news']:
                     if key not in news_data:
                         news_data[key] = []
-                
+
                 if 'market_sentiment' not in news_data:
                     news_data['market_sentiment'] = 'neutral'
 
@@ -1210,12 +1209,15 @@ class StockAnalyzer:
         """
         try:
             import openai
+            from openai import OpenAI
+            
+            client = OpenAI(api_key=self.openai_api_key)
             import threading
             import queue
 
             # 设置API密钥和基础URL
-            openai.api_key = self.openai_api_key
-            openai.api_base = self.openai_api_url
+            # TODO: The 'openai.api_base' option isn't read in the client API. You will need to pass it when you instantiate the client, e.g. 'OpenAI(base_url=self.openai_api_url)'
+            # openai.api_base = self.openai_api_url
 
             # 1. 获取最近K线数据
             recent_data = df.tail(20).to_dict('records')
@@ -1327,14 +1329,12 @@ class StockAnalyzer:
 
             def call_api():
                 try:
-                    response = openai.ChatCompletion.create(
-                        model=self.openai_model,
-                        messages=messages,
-                        temperature=0.8,
-                        max_tokens=4000,
-                        stream=False,
-                        timeout=180
-                    )
+                    response = client.chat.completions.create(model=self.openai_model,
+                    messages=messages,
+                    temperature=0.8,
+                    max_tokens=4000,
+                    stream=False,
+                    timeout=180)
                     result_queue.put(response)
                 except Exception as e:
                     result_queue.put(e)

@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 import openai
+from openai import OpenAI
 import logging
 from logging.handlers import RotatingFileHandler
 """
@@ -27,6 +28,7 @@ class ScenarioPredictor:
         self.openai_api_key = os.getenv('OPENAI_API_KEY', os.getenv('OPENAI_API_KEY'))
         self.openai_api_url = os.getenv('OPENAI_API_URL', 'https://api.openai.com/v1')
         self.openai_model = os.getenv('OPENAI_API_MODEL', 'gemini-2.0-pro-exp-02-05')
+        self.client = OpenAI(api_key=self.openai_api_key, base_url=self.openai_api_url)
         # logging.info(f"scenario_predictor初始化完成：「{self.openai_api_key} {self.openai_api_url} {self.openai_model}」")
 
     def generate_scenarios(self, stock_code, market_type='A', days=60):
@@ -138,9 +140,9 @@ class ScenarioPredictor:
     def _generate_ai_analysis(self, stock_code, stock_info, df, scenarios):
         """使用AI生成各情景的分析说明，包含风险和机会因素"""
         try:
-            openai.api_key = self.openai_api_key
-            openai.api_base = self.openai_api_url
-    
+            # TODO: The 'openai.api_base' option isn't read in the client API. You will need to pass it when you instantiate the client, e.g. 'OpenAI(base_url=self.openai_api_url)'
+            # openai.api_base = self.openai_api_url
+
             # 提取关键数据
             current_price = df.iloc[-1]['close']
             ma5 = df.iloc[-1]['MA5']
@@ -149,7 +151,7 @@ class ScenarioPredictor:
             rsi = df.iloc[-1]['RSI']
             macd = df.iloc[-1]['MACD']
             signal = df.iloc[-1]['Signal']
-    
+
             # 构建提示词，增加对风险和机会因素的要求
             prompt = f"""分析股票{stock_code}（{stock_info.get('股票名称', '未知')}）的三种市场情景:
     
@@ -175,17 +177,15 @@ class ScenarioPredictor:
     
     风险和机会因素应该具体说明，每条5-15个字，简明扼要。
     """
-    
+
             # 调用AI API
-            response = openai.ChatCompletion.create(
-                model=self.openai_model,
-                messages=[
-                    {"role": "system", "content": "你是专业的股票分析师，擅长技术分析和情景预测。"},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7
-            )
-    
+            response = self.client.chat.completions.create(model=self.openai_model,
+            messages=[
+                {"role": "system", "content": "你是专业的股票分析师，擅长技术分析和情景预测。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7)
+
             # 解析AI回复
             import json
             try:
@@ -219,7 +219,7 @@ class ScenarioPredictor:
         except Exception as e:
             print(f"生成AI分析出错: {str(e)}")
             return self._get_default_analysis()
-    
+
     def _get_default_risk_factors(self):
         """返回默认的风险因素"""
         return [
@@ -229,7 +229,7 @@ class ScenarioPredictor:
             "市场竞争加剧",
             "技术迭代风险"
         ]
-    
+
     def _get_default_opportunity_factors(self):
         """返回默认的机会因素"""
         return [
@@ -239,7 +239,7 @@ class ScenarioPredictor:
             "产能扩张计划",
             "国际市场开拓机会"
         ]
-    
+
     def _get_default_analysis(self):
         """返回默认的分析结果（包含风险和机会因素）"""
         return {
@@ -249,68 +249,3 @@ class ScenarioPredictor:
             "risk_factors": self._get_default_risk_factors(),
             "opportunity_factors": self._get_default_opportunity_factors()
         }
-    
-    
-    
-    
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

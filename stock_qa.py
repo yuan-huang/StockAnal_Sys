@@ -12,6 +12,7 @@ import os
 import json
 import traceback
 import openai
+from openai import OpenAI
 from urllib.parse import urlparse
 from datetime import datetime
 
@@ -26,10 +27,11 @@ class StockQA:
         self.serp_api_key = os.getenv('SERP_API_KEY')
         self.tavily_api_key = os.getenv('TAVILY_API_KEY')
         self.max_qa_rounds = int(os.getenv('MAX_QA', '10'))  # 默认保留10轮对话
-        
+        self.client = OpenAI(api_key=self.openai_api_key, base_url=self.openai_api_url)
+
         # 对话历史存储 - 使用字典存储不同股票的对话历史
         self.conversation_history = {}
-        
+
         # 设置日志记录
         import logging
         self.logger = logging.getLogger(__name__)
@@ -57,15 +59,15 @@ class StockQA:
                 # 生成新的对话ID
                 import uuid
                 conversation_id = f"{stock_code}_{uuid.uuid4().hex[:8]}"
-            
+
             # 获取或创建对话历史
             if clear_history or conversation_id not in self.conversation_history:
                 self.conversation_history[conversation_id] = []
-            
+
             # 获取股票信息和技术指标 - 每次都获取最新数据
             stock_context = self._get_stock_context(stock_code, market_type)
             stock_name = stock_context.get("stock_name", "未知")
-                
+
             # 定义搜索新闻的工具
             tools = [
                 {
@@ -120,43 +122,41 @@ class StockQA:
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": f"以下是关于股票的基础信息，作为我们对话的背景资料：\n\n{stock_context['context']}"}
             ]
-            
+
             # 添加对话历史记录
             messages.extend(self.conversation_history[conversation_id])
-            
+
             # 添加当前问题
             messages.append({"role": "user", "content": question})
-            
+
             # 调用AI API
-            openai.api_key = self.openai_api_key
-            openai.api_base = self.openai_api_url
+            # TODO: The 'openai.api_base' option isn't read in the client API. You will need to pass it when you instantiate the client, e.g. 'OpenAI(base_url=self.openai_api_url)'
+            # openai.api_base = self.openai_api_url
 
             # 第一步：调用模型，让它决定是否使用工具
-            first_response = openai.ChatCompletion.create(
-                model=self.function_call_model,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                temperature=0.7
-            )
+            first_response = self.client.chat.completions.create(model=self.function_call_model,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            temperature=0.7)
 
             # 获取初始响应
             assistant_message = first_response.choices[0].message
             response_content = assistant_message.content
             used_search_tool = False
-            
+
             # 检查是否需要使用工具调用
             if hasattr(assistant_message, 'tool_calls') and assistant_message.tool_calls:
                 used_search_tool = True
                 # 创建新的消息列表，包含工具调用
                 tool_messages = list(messages)  # 复制原始消息列表
                 tool_messages.append({"role": "assistant", "tool_calls": assistant_message.tool_calls})
-                
+
                 # 处理工具调用
                 for tool_call in assistant_message.tool_calls:
                     function_name = tool_call.function.name
                     function_args = json.loads(tool_call.function.arguments)
-                    
+
                     if function_name == "search_stock_news":
                         # 执行新闻搜索
                         search_query = function_args.get("query")
@@ -168,7 +168,7 @@ class StockQA:
                             stock_context.get("industry", ""),
                             market_type
                         )
-                        
+
                         # 添加工具响应
                         tool_messages.append({
                             "tool_call_id": tool_call.id,
@@ -176,28 +176,26 @@ class StockQA:
                             "name": function_name,
                             "content": json.dumps(search_results, ensure_ascii=False)
                         })
-                
+
                 # 第二步：让模型根据工具调用结果生成最终响应
-                second_response = openai.ChatCompletion.create(
-                    model=self.openai_model,
-                    messages=tool_messages,
-                    temperature=0.7
-                )
-                
+                second_response = self.client.chat.completions.create(model=self.openai_model,
+                messages=tool_messages,
+                temperature=0.7)
+
                 response_content = second_response.choices[0].message.content
                 assistant_message = {"role": "assistant", "content": response_content}
             else:
                 assistant_message = {"role": "assistant", "content": response_content}
-            
+
             # 更新对话历史
             self.conversation_history[conversation_id].append({"role": "user", "content": question})
             self.conversation_history[conversation_id].append(assistant_message)
-            
+
             # 限制对话历史长度
             if len(self.conversation_history[conversation_id]) > self.max_qa_rounds * 2:
                 # 保留最近的MAX_QA轮对话
                 self.conversation_history[conversation_id] = self.conversation_history[conversation_id][-self.max_qa_rounds * 2:]
-            
+
             # 返回结果
             return {
                 "conversation_id": conversation_id,
@@ -316,7 +314,7 @@ class StockQA:
             # 清除特定对话
             del self.conversation_history[conversation_id]
             return {"message": f"已清除对话 {conversation_id}"}
-            
+
         elif stock_code:
             # 清除与特定股票相关的所有对话
             removed = []
@@ -325,7 +323,7 @@ class StockQA:
                     del self.conversation_history[conv_id]
                     removed.append(conv_id)
             return {"message": f"已清除与股票 {stock_code} 相关的 {len(removed)} 个对话"}
-            
+
         else:
             # 清除所有对话
             count = len(self.conversation_history)
@@ -336,11 +334,11 @@ class StockQA:
         """获取特定对话的历史记录"""
         if conversation_id not in self.conversation_history:
             return {"error": f"找不到对话 {conversation_id}"}
-            
+
         # 提取用户问题和助手回答
         history = []
         conversation = self.conversation_history[conversation_id]
-        
+
         # 按对话轮次提取历史
         for i in range(0, len(conversation), 2):
             if i+1 < len(conversation):
@@ -348,7 +346,7 @@ class StockQA:
                     "question": conversation[i]["content"],
                     "answer": conversation[i+1]["content"]
                 })
-                
+
         return {
             "conversation_id": conversation_id,
             "history": history,
@@ -359,10 +357,10 @@ class StockQA:
         """搜索股票相关新闻和实时信息"""
         try:
             self.logger.info(f"搜索股票新闻: {query}")
-            
+
             # 确定市场名称
             market_name = "A股" if market_type == 'A' else "港股" if market_type == 'HK' else "美股"
-            
+
             # 检查API密钥
             if not self.serp_api_key and not self.tavily_api_key:
                 self.logger.warning("未配置搜索API密钥")
@@ -370,17 +368,17 @@ class StockQA:
                     "message": "无法搜索新闻，未配置搜索API密钥",
                     "results": []
                 }
-            
+
             news_results = []
-            
+
             # 使用SERP API搜索
             if self.serp_api_key:
                 try:
                     import requests
-                    
+
                     # 构建搜索查询
                     search_query = f"{stock_name} {stock_code} {market_name} {query}"
-                    
+
                     # 调用SERP API
                     url = "https://serpapi.com/search"
                     params = {
@@ -390,10 +388,10 @@ class StockQA:
                         "tbm": "nws",  # 新闻搜索
                         "num": 5  # 获取5条结果
                     }
-                    
+
                     response = requests.get(url, params=params)
                     search_results = response.json()
-                    
+
                     # 提取新闻结果
                     if "news_results" in search_results:
                         for item in search_results["news_results"]:
@@ -406,24 +404,24 @@ class StockQA:
                             })
                 except Exception as e:
                     self.logger.error(f"SERP API搜索出错: {str(e)}")
-            
+
             # 使用Tavily API搜索
             if self.tavily_api_key:
                 try:
                     from tavily import TavilyClient
-                    
+
                     client = TavilyClient(self.tavily_api_key)
-                    
+
                     # 构建搜索查询
                     search_query = f"{stock_name} {stock_code} {market_name} {query}"
-                    
+
                     # 调用Tavily API
                     response = client.search(
                         query=search_query,
                         topic="finance",
                         search_depth="advanced"
                     )
-                    
+
                     # 提取结果
                     if "results" in response:
                         for item in response["results"]:
@@ -435,7 +433,7 @@ class StockQA:
                                     source = parsed_url.netloc
                                 except:
                                     source = "未知来源"
-                            
+
                             news_results.append({
                                 "title": item.get("title", ""),
                                 "date": datetime.now().strftime("%Y-%m-%d"),  # Tavily不提供日期
@@ -447,11 +445,11 @@ class StockQA:
                     self.logger.warning("未安装Tavily客户端库，请使用pip install tavily-python安装")
                 except Exception as e:
                     self.logger.error(f"Tavily API搜索出错: {str(e)}")
-            
+
             # 去重并限制结果数量
             unique_results = []
             seen_titles = set()
-            
+
             for item in news_results:
                 title = item.get("title", "").strip()
                 if title and title not in seen_titles:
@@ -459,20 +457,20 @@ class StockQA:
                     unique_results.append(item)
                     if len(unique_results) >= 5:  # 最多返回5条结果
                         break
-            
+
             # 创建格式化的摘要文本
             summary_text = ""
             for i, item in enumerate(unique_results):
                 summary_text += f"{i+1}、{item.get('title', '')}\n"
                 summary_text += f"{item.get('snippet', '')}\n"
                 summary_text += f"来源: {item.get('source', '')} {item.get('date', '')}\n\n"
-            
+
             return {
                 "message": f"找到 {len(unique_results)} 条相关新闻",
                 "results": unique_results,
                 "summary": summary_text
             }
-            
+
         except Exception as e:
             self.logger.error(f"搜索股票新闻时出错: {str(e)}")
             self.logger.error(traceback.format_exc())

@@ -33,7 +33,11 @@ from scenario_predictor import ScenarioPredictor
 from stock_qa import StockQA
 from risk_monitor import RiskMonitor
 from index_industry_analyzer import IndexIndustryAnalyzer
+from futures_analyzer import FuturesAnalyzer
 from news_fetcher import news_fetcher, start_news_scheduler
+
+# 初始化期货分析器
+futures_analyzer = FuturesAnalyzer()
 
 # 加载环境变量
 load_dotenv()
@@ -552,6 +556,12 @@ def qa_page():
 @app.route('/industry_analysis')
 def industry_analysis():
     return render_template('industry_analysis.html')
+
+
+@app.route('/futures_ranking')
+def futures_ranking():
+    return render_template('futures_ranking.html')
+
 
 
 def make_cache_key_with_stock():
@@ -1661,6 +1671,19 @@ def get_latest_news():
     except Exception as e:
         app.logger.error(f"获取最新新闻数据时出错: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/futures/rank_summary', methods=['GET'])
+def api_futures_rank_summary():
+    """获取期货市场持仓排名汇总"""
+    try:
+        date = request.args.get('date') # YYYYMMDD format
+        result = futures_analyzer.get_futures_rank_summary(date=date)
+        return custom_jsonify(result)
+    except Exception as e:
+        app.logger.error(f"获取期货持仓排名时出错: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
 
 # 在应用启动时启动清理线程（保持原有代码不变）
 cleaner_thread = threading.Thread(target=run_task_cleaner)
