@@ -6,11 +6,11 @@
 
 # 配置
 APP_NAME="智能分析系统"
-APP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+APP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 PYTHON_CMD="python"
-SERVER_SCRIPT="web_server.py"
-PID_FILE="${APP_DIR}/.server.pid"
-LOG_FILE="${APP_DIR}/server.log"
+SERVER_SCRIPT="run.py"
+PID_FILE="${APP_DIR}/data/.server.pid"
+LOG_FILE="${APP_DIR}/data/server.log"
 MONITOR_INTERVAL=30  # 监控检查间隔（秒）
 
 # 颜色配置

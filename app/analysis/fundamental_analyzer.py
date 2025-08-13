@@ -16,8 +16,10 @@ class FundamentalAnalyzer:
         """初始化基础分析类"""
         self.data_cache = {}
 
-    def get_financial_indicators(self, stock_code):
+    def get_financial_indicators(self, stock_code, progress_callback=None):
         """获取财务指标数据"""
+        if progress_callback:
+            progress_callback(5, "正在获取财务指标...")
         try:
             # 获取基本财务指标
             financial_data = ak.stock_financial_analysis_indicator(symbol=stock_code,start_year="2022")
@@ -35,14 +37,19 @@ class FundamentalAnalyzer:
                 'net_profit_margin': float(financial_data['总资产净利润率(%)'].iloc[0]),
                 'debt_ratio': float(financial_data['资产负债率(%)'].iloc[0])
             }
-
+            if progress_callback:
+                progress_callback(10, "财务指标获取成功")
             return indicators
         except Exception as e:
             print(f"获取财务指标出错: {str(e)}")
+            if progress_callback:
+                progress_callback(10, f"财务指标获取失败: {e}")
             return {}
 
-    def get_growth_data(self, stock_code):
+    def get_growth_data(self, stock_code, progress_callback=None):
         """获取成长性数据"""
+        if progress_callback:
+            progress_callback(15, "正在获取成长性数据...")
         try:
             # 获取历年财务数据
             financial_data = ak.stock_financial_abstract(symbol=stock_code)
@@ -57,10 +64,13 @@ class FundamentalAnalyzer:
                 'revenue_growth_5y': self._calculate_cagr(revenue, 5),
                 'profit_growth_5y': self._calculate_cagr(net_profit, 5)
             }
-
+            if progress_callback:
+                progress_callback(20, "成长性数据获取成功")
             return growth
         except Exception as e:
             print(f"获取成长数据出错: {str(e)}")
+            if progress_callback:
+                progress_callback(20, f"成长性数据获取失败: {e}")
             return {}
 
     def _calculate_cagr(self, series, years):
@@ -76,10 +86,16 @@ class FundamentalAnalyzer:
 
         return ((latest / earlier) ** (1 / years) - 1) * 100
 
-    def calculate_fundamental_score(self, stock_code):
+    def calculate_fundamental_score(self, stock_code, progress_callback=None):
         """计算基本面综合评分"""
-        indicators = self.get_financial_indicators(stock_code)
-        growth = self.get_growth_data(stock_code)
+        if progress_callback:
+            progress_callback(0, "启动基本面分析模块...")
+
+        indicators = self.get_financial_indicators(stock_code, progress_callback=progress_callback)
+        growth = self.get_growth_data(stock_code, progress_callback=progress_callback)
+
+        if progress_callback:
+            progress_callback(25, "计算基本面综合评分...")
 
         # 估值评分 (30分)
         valuation_score = 0
@@ -144,6 +160,9 @@ class FundamentalAnalyzer:
 
         # 计算总分
         total_score = valuation_score + financial_score + growth_score
+        
+        if progress_callback:
+            progress_callback(30, "基本面分析完成")
 
         return {
             'total': total_score,

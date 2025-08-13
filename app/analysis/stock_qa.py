@@ -274,7 +274,7 @@ class StockQA:
             # 尝试获取基本面数据
             try:
                 # 导入基本面分析器
-                from fundamental_analyzer import FundamentalAnalyzer
+                from app.analysis.fundamental_analyzer import FundamentalAnalyzer
                 fundamental = FundamentalAnalyzer()
 
                 # 获取基本面数据
