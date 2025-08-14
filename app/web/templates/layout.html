@@ -9,7 +9,8 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <!-- ApexCharts -->
     <link href="https://cdn.jsdelivr.net/npm/apexcharts@3.35.0/dist/apexcharts.min.css" rel="stylesheet">
     <!-- Download PDF -->
@@ -19,7 +20,8 @@
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f8f9fa;
+            background-color: var(--bg-color);
+            color: var(--text-color);
         }
         .navbar-brand {
             font-weight: bold;
@@ -28,21 +30,21 @@
             margin-left: 10px;
         }
         .sidebar {
-            background-color: #343a40;
+            background-color: var(--sidebar-bg-color);
             color: white;
             min-height: calc(100vh - 56px);
         }
         .sidebar .nav-link {
-            color: #ced4da;
+            color: var(--sidebar-text-color);
             padding: 0.75rem 1rem;
         }
         .sidebar .nav-link:hover {
             color: #fff;
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: var(--sidebar-hover-bg-color);
         }
         .sidebar .nav-link.active {
             color: #fff;
-            background-color: rgba(255, 255, 255, 0.2);
+            background-color: var(--sidebar-active-bg-color);
         }
         .sidebar .nav-link i {
             margin-right: 10px;
@@ -737,6 +739,15 @@
     }
 
     </style>
+            <script>
+            // Immediately apply the theme on page load to prevent FOUC
+            (function() {
+                const theme = localStorage.getItem('theme') || 'light';
+                if (theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            })();
+        </script>
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -793,7 +804,10 @@
                         <a class="nav-link {% if request.path == '/agent_analysis' %}active{% endif %}" href="/agent_analysis"><i class="fas fa-robot"></i> 智能体分析</a>
                     </li>
                 </ul>
-                <div class="d-flex">
+                <div class="d-flex align-items-center">
+                    <button class="btn text-white me-2" id="theme-toggle" title="切换主题">
+                        <i class="fas fa-moon"></i>
+                    </button>
                     <div class="input-group">
                         <input type="text" id="search-stock" class="form-control" placeholder="搜索股票代码/名称" aria-label="搜索股票">
                         <button class="btn btn-light" type="button" id="search-button">
@@ -896,6 +910,37 @@
                 $('#search-button').click();
             }
         });
+
+        // Theme Toggle Logic
+        (function() {
+            const themeToggle = document.getElementById('theme-toggle');
+            if (!themeToggle) return;
+
+            const themeIcon = themeToggle.querySelector('i');
+            const htmlElement = document.documentElement;
+
+            // Set initial icon based on theme
+            if (htmlElement.getAttribute('data-theme') === 'dark') {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            }
+
+            themeToggle.addEventListener('click', function() {
+                const isDark = htmlElement.hasAttribute('data-theme');
+                if (isDark) {
+                    htmlElement.removeAttribute('data-theme');
+                    localStorage.setItem('theme', 'light');
+                    themeIcon.classList.remove('fa-sun');
+                    themeIcon.classList.add('fa-moon');
+                } else {
+                    htmlElement.setAttribute('data-theme', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                }
+            });
+        })();
+
 
         // 格式化数字 - 增强版
         function formatNumber(num, digits = 2) {

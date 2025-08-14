@@ -796,7 +796,7 @@ class StockAnalyzer:
                         pass
 
                     # 如果配置了Tavily API，使用Tavily API搜索
-                    if tavily_api_key:
+                    if tavily_api_key and tavily_api_key != 'your_tavily_api_key':
                         self.logger.info(f"使用Tavily API搜索新闻: {search_query}")
                         try:
                             from tavily import TavilyClient

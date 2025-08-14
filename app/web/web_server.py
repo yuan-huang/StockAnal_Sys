@@ -1874,9 +1874,12 @@ def start_agent_analysis():
     try:
         data = request.json
         stock_code = data.get('stock_code')
-        research_depth = data.get('research_depth', 3) # 默认标准分析
+        research_depth = data.get('research_depth', 3)
         market_type = data.get('market_type', 'A')
         selected_analysts = data.get('selected_analysts', ["market", "social", "news", "fundamentals"])
+        analysis_date = data.get('analysis_date')
+        enable_memory = data.get('enable_memory', True)
+        max_output_length = data.get('max_output_length', 2048)
 
         if not stock_code:
             return jsonify({'error': '请提供股票代码'}), 400
@@ -1894,7 +1897,10 @@ def start_agent_analysis():
                 'stock_code': stock_code,
                 'research_depth': research_depth,
                 'market_type': market_type,
-                'selected_analysts': selected_analysts
+                'selected_analysts': selected_analysts,
+                'analysis_date': analysis_date,
+                'enable_memory': enable_memory,
+                'max_output_length': max_output_length
             }
         }
         
@@ -1917,6 +1923,8 @@ def start_agent_analysis():
                 main_model = os.getenv('OPENAI_API_MODEL', 'gpt-4o')
                 config['deep_think_llm'] = main_model
                 config['quick_think_llm'] = main_model
+                config['memory_enabled'] = enable_memory
+                config['max_tokens'] = max_output_length
                 
                 if not os.getenv('OPENAI_API_KEY'):
                     raise ValueError("主应用的 OPENAI_API_KEY 未在.env文件中设置")
@@ -1937,8 +1945,8 @@ def start_agent_analysis():
                          raise TaskCancelledException(f"任务 {task_id} 已被用户取消")
                     update_task_status('agent_analysis', task_id, TASK_RUNNING, progress=progress, result={'current_step': step})
 
-                today = datetime.now().strftime('%Y-%m-%d')
-                state, decision = ta.propagate(stock_code, today, progress_callback=progress_callback)
+                today = analysis_date or datetime.now().strftime('%Y-%m-%d')
+                state, decision = ta.propagate(stock_code, today, market_type=market_type, progress_callback=progress_callback)
                 
                 # 修复：在任务完成时，获取并添加公司名称到最终结果中
                 try:

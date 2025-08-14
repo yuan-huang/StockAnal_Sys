@@ -87,3 +87,5 @@ dump.rdb
 CLAUDE.md
 akshare.md
 .server.pid
+
+eval_results/
