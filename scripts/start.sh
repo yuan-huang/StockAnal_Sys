@@ -49,6 +49,13 @@ check_prerequisites() {
         echo -e "${YELLOW}当前目录: $(pwd)${NC}"
         exit 1
     fi
+
+    # 确保日志和PID目录存在
+    local data_dir=$(dirname "$PID_FILE")
+    if [ ! -d "$data_dir" ]; then
+        echo -e "${YELLOW}数据目录不存在，正在创建: ${data_dir}${NC}"
+        mkdir -p "$data_dir"
+    fi
 }
 
 # 函数：获取进程ID

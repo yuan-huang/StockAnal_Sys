@@ -1,5 +1,28 @@
 {% extends "layout.html" %}
 
+{% block head %}
+<style>
+    /* 修复“开始分析”按钮中加载动画和文字的对齐问题 */
+    #start-analysis-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem; /* 在图标/加载动画和文字之间添加一些间距 */
+    }
+
+    /* 为市场下拉菜单应用自定义样式 */
+    #market-type.form-select {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 16px 12px;
+    }
+</style>
+{% endblock %}
+
 {% block title %}智能体分析 - 智能分析系统{% endblock %}
 
 {% block content %}

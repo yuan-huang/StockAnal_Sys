@@ -1933,7 +1933,6 @@ def start_agent_analysis():
 
                 ta = TradingAgentsGraph(
                     selected_analysts=selected_analysts,
-                    research_depth=research_depth,
                     debug=True, 
                     config=config
                 )
