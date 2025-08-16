@@ -944,6 +944,7 @@
 
         // 格式化数字 - 增强版
         function formatNumber(num, digits = 2) {
+            console.log('formatNumber called with:', num);
             if (num === null || num === undefined) return '-';
             return parseFloat(num).toFixed(digits);
         }
@@ -964,6 +965,7 @@
 
         // 格式化百分比
         function formatPercent(num, digits = 2) {
+            console.log('formatPercent called with:', num);
             if (num === null || num === undefined) return '-';
             return parseFloat(num).toFixed(digits) + '%';
         }

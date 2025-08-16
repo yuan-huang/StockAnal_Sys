@@ -54,20 +54,43 @@ class FundamentalAnalyzer:
             # 获取历年财务数据
             financial_data = ak.stock_financial_abstract(symbol=stock_code)
 
-            # 计算各项成长率
-            revenue = financial_data['营业收入'].astype(float)
-            net_profit = financial_data['净利润'].astype(float)
+            # --- 修复：兼容不同的财务字段名 ---
+            # 查找营业收入列
+            revenue_col = None
+            if '营业总收入' in financial_data.columns:
+                revenue_col = '营业总收入'
+            elif '营业收入' in financial_data.columns:
+                revenue_col = '营业收入'
+            
+            # 查找净利润列
+            profit_col = None
+            if '归属母公司股东的净利润' in financial_data.columns:
+                profit_col = '归属母公司股东的净利润'
+            elif '净利润' in financial_data.columns:
+                profit_col = '净利润'
 
-            growth = {
-                'revenue_growth_3y': self._calculate_cagr(revenue, 3),
-                'profit_growth_3y': self._calculate_cagr(net_profit, 3),
-                'revenue_growth_5y': self._calculate_cagr(revenue, 5),
-                'profit_growth_5y': self._calculate_cagr(net_profit, 5)
-            }
+            growth = {}
+            # 仅在找到列时计算
+            if revenue_col:
+                revenue = financial_data[revenue_col].astype(float)
+                growth['revenue_growth_3y'] = self._calculate_cagr(revenue, 3)
+                growth['revenue_growth_5y'] = self._calculate_cagr(revenue, 5)
+            else:
+                print(f"警告: 股票 {stock_code} 未找到 '营业总收入' 或 '营业收入' 列")
+
+            if profit_col:
+                net_profit = financial_data[profit_col].astype(float)
+                growth['profit_growth_3y'] = self._calculate_cagr(net_profit, 3)
+                growth['profit_growth_5y'] = self._calculate_cagr(net_profit, 5)
+            else:
+                print(f"警告: 股票 {stock_code} 未找到 '归属母公司股东的净利润' 或 '净利润' 列")
+            # --- 修复结束 ---
+
             if progress_callback:
                 progress_callback(20, "成长性数据获取成功")
             return growth
         except Exception as e:
+            # 保持现有的异常捕获，以防akshare调用本身失败
             print(f"获取成长数据出错: {str(e)}")
             if progress_callback:
                 progress_callback(20, f"成长性数据获取失败: {e}")

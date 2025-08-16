@@ -7,7 +7,7 @@
 # 配置
 APP_NAME="智能分析系统"
 APP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
-PYTHON_CMD="python"
+PYTHON_CMD="${APP_DIR}/env/bin/python"
 SERVER_SCRIPT="run.py"
 PID_FILE="${APP_DIR}/data/.server.pid"
 LOG_FILE="${APP_DIR}/data/server.log"
