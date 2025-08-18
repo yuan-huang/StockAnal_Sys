@@ -35,6 +35,7 @@ from app.analysis.stock_qa import StockQA
 from app.analysis.risk_monitor import RiskMonitor
 from app.analysis.index_industry_analyzer import IndexIndustryAnalyzer
 from app.analysis.news_fetcher import news_fetcher, start_news_scheduler
+from app.analysis.etf_analyzer import EtfAnalyzer
 
 import sys
 import os
@@ -168,13 +169,15 @@ app.logger.info(f"日志系统已初始化，级别: {log_level}, 文件: {log_f
 task_types = {
     'scan': 'market_scan',  # 市场扫描任务
     'analysis': 'stock_analysis',  # 个股分析任务
-    'agent_analysis': 'agent_analysis' # 智能体分析任务
+    'agent_analysis': 'agent_analysis', # 智能体分析任务
+    'etf_analysis': 'etf_analysis' # ETF分析任务
 }
 
 # 任务数据存储
 tasks = {
     'market_scan': {},
     'stock_analysis': {},
+    'etf_analysis': {},
 }
 
 
@@ -189,6 +192,8 @@ def generate_task_key(task_type, **params):
     if task_type == 'stock_analysis':
         # 对于个股分析，使用股票代码和市场类型作为键
         return f"{params.get('stock_code')}_{params.get('market_type', 'A')}"
+    if task_type == 'etf_analysis':
+        return f"{params.get('etf_code')}"
     return None  # 其他任务类型不使用预生成的键
 
 
@@ -372,7 +377,7 @@ def convert_numpy_types(obj):
         import math
 
         if isinstance(obj, dict):
-            return {key: convert_numpy_types(value) for key, value in obj.items()}
+            return {convert_numpy_types(key): convert_numpy_types(value) for key, value in obj.items()}
         elif isinstance(obj, list):
             return [convert_numpy_types(item) for item in obj]
         elif isinstance(obj, np.integer):
@@ -404,7 +409,7 @@ def convert_numpy_types(obj):
         # 如果没有安装numpy，但需要处理date和datetime
         import math
         if isinstance(obj, dict):
-            return {key: convert_numpy_types(value) for key, value in obj.items()}
+            return {convert_numpy_types(key): convert_numpy_types(value) for key, value in obj.items()}
         elif isinstance(obj, list):
             return [convert_numpy_types(item) for item in obj]
         elif isinstance(obj, (date, datetime)):
@@ -668,6 +673,11 @@ def agent_analysis_page():
     return render_template('agent_analysis.html')
 
 
+@app.route('/etf_analysis')
+def etf_analysis_page():
+    return render_template('etf_analysis.html')
+
+
 
 
 
@@ -807,6 +817,93 @@ def cancel_analysis(task_id):
             store[task['key']] = task
 
         return jsonify({'message': '任务已取消'})
+
+
+# ETF 分析路由
+@app.route('/api/start_etf_analysis', methods=['POST'])
+def start_etf_analysis():
+    """启动ETF分析任务"""
+    try:
+        data = request.json
+        etf_code = data.get('etf_code')
+
+        if not etf_code:
+            return jsonify({'error': '请输入ETF代码'}), 400
+
+        app.logger.info(f"准备分析ETF: {etf_code}")
+
+        task_id, task, is_new = get_or_create_task(
+            'etf_analysis',
+            etf_code=etf_code
+        )
+
+        if task['status'] == TASK_COMPLETED and 'result' in task:
+            app.logger.info(f"使用缓存的ETF分析结果: {etf_code}")
+            return jsonify({
+                'task_id': task_id,
+                'status': task['status'],
+                'result': task['result']
+            })
+
+        if is_new:
+            app.logger.info(f"创建新的ETF分析任务: {task_id}")
+
+            def run_etf_analysis():
+                try:
+                    update_task_status('etf_analysis', task_id, TASK_RUNNING, progress=10)
+                    
+                    # 使用一个新的 EtfAnalyzer 实例, 并传入stock_analyzer
+                    etf_analyzer_instance = EtfAnalyzer(etf_code, analyzer)
+                    result = etf_analyzer_instance.run_analysis()
+                    
+                    update_task_status('etf_analysis', task_id, TASK_COMPLETED, progress=100, result=result)
+                    app.logger.info(f"ETF分析任务 {task_id} 完成")
+
+                except Exception as e:
+                    app.logger.error(f"ETF分析任务 {task_id} 失败: {str(e)}")
+                    app.logger.error(traceback.format_exc())
+                    update_task_status('etf_analysis', task_id, TASK_FAILED, error=str(e))
+
+            thread = threading.Thread(target=run_etf_analysis)
+            thread.daemon = True
+            thread.start()
+
+        return jsonify({
+            'task_id': task_id,
+            'status': task['status'],
+            'message': f'已启动ETF分析任务: {etf_code}'
+        })
+
+    except Exception as e:
+        app.logger.error(f"启动ETF分析任务时出错: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/etf_analysis_status/<task_id>', methods=['GET'])
+def get_etf_analysis_status(task_id):
+    """获取ETF分析任务状态"""
+    store = get_task_store('etf_analysis')
+    with task_lock:
+        if task_id not in store:
+            return jsonify({'error': '找不到指定的ETF分析任务'}), 404
+
+        task = store[task_id]
+
+        status = {
+            'id': task['id'],
+            'status': task['status'],
+            'progress': task.get('progress', 0),
+            'created_at': task['created_at'],
+            'updated_at': task['updated_at']
+        }
+
+        if task['status'] == TASK_COMPLETED and 'result' in task:
+            status['result'] = task['result']
+        
+        if task['status'] == TASK_FAILED and 'error' in task:
+            status['error'] = task['error']
+
+        return custom_jsonify(status)
 
 
 # 保留原有API用于向后兼容

@@ -882,25 +882,55 @@ class StockAnalyzer:
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
 
-    def get_ai_analysis(self, df, stock_code, market_type='A'):
+    def get_ai_analysis_from_prompt(self, prompt: str) -> str:
         """
-        使用AI进行增强分析
-        结合技术指标、实时新闻和行业信息
-
-        参数:
-            df: 股票历史数据DataFrame
-            stock_code: 股票代码
-            market_type: 市场类型(A/HK/US)
-
-        返回:
-            AI生成的分析报告文本
+        接收一个已经构建好的prompt，并返回AI模型的分析结果。
         """
         try:
-            import threading
             import queue
+            import threading
 
-            # 设置API密钥和基础URL
+            messages = [{"role": "user", "content": prompt}]
+            result_queue = queue.Queue()
 
+            def call_api():
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.openai_model,
+                        messages=messages,
+                        temperature=0.8,
+                        max_tokens=4000,
+                        stream=False,
+                        timeout=300
+                    )
+                    result_queue.put(response)
+                except Exception as e:
+                    result_queue.put(e)
+
+            api_thread = threading.Thread(target=call_api)
+            api_thread.daemon = True
+            api_thread.start()
+
+            try:
+                result = result_queue.get(timeout=240)
+                if isinstance(result, Exception):
+                    raise result
+                assistant_reply = result.choices[0].message.content.strip()
+                return assistant_reply
+            except queue.Empty:
+                return "AI分析超时，无法获取分析结果。请稍后再试。"
+            except Exception as e:
+                return f"AI分析过程中发生错误: {str(e)}"
+
+        except Exception as e:
+            self.logger.error(f"从prompt进行AI分析时出错: {str(e)}")
+            return f"AI分析过程中发生错误，请稍后再试。错误信息: {str(e)}"
+
+    def _build_stock_prompt_and_get_analysis(self, df, stock_code, market_type='A'):
+        """
+        为个股分析构建详细的prompt，并调用AI模型。
+        """
+        try:
             # 1. 获取最近K线数据
             recent_data = df.tail(20).to_dict('records')
 
@@ -922,7 +952,7 @@ class StockAnalyzer:
             stock_name = stock_info.get('股票名称', '未知')
             industry = stock_info.get('行业', '未知')
 
-            # 5. 获取相关新闻和实时信息 - 整合get_stock_news
+            # 5. 获取相关新闻和实时信息
             self.logger.info(f"获取 {stock_code} 的相关新闻和市场信息")
             news_data = self.get_stock_news(stock_code, market_type)
 
@@ -931,7 +961,6 @@ class StockAnalyzer:
             score_details = getattr(self, 'score_details', {'total': score})
 
             # 7. 获取投资建议
-            # 传递技术指标和新闻数据给get_recommendation函数
             tech_data = {
                 'RSI': technical_summary['rsi_level'],
                 'MACD_signal': technical_summary['macd_signal'],
@@ -939,7 +968,7 @@ class StockAnalyzer:
             }
             recommendation = self.get_recommendation(score, market_type, tech_data, news_data)
 
-            # 8. 构建更全面的prompt
+            # 8. 构建全面的prompt
             prompt = f"""作为专业的股票分析师，请对{stock_name}({stock_code})进行全面分析:
 
     1. 基本信息:
@@ -1003,51 +1032,11 @@ class StockAnalyzer:
 
     请基于数据给出客观分析，不要过度乐观或悲观。分析应该包含具体数据和百分比，避免模糊表述。
     """
-
-            messages = [{"role": "user", "content": prompt}]
-
-            # 使用线程和队列添加超时控制
-            result_queue = queue.Queue()
-
-            def call_api():
-                try:
-                    response = self.client.chat.completions.create(
-                        model=self.openai_model,
-                        messages=messages,
-                        temperature=0.8,
-                        max_tokens=4000,
-                        stream=False,
-                        timeout=300
-                    )
-                    result_queue.put(response)
-                except Exception as e:
-                    result_queue.put(e)
-
-            # 启动API调用线程
-            api_thread = threading.Thread(target=call_api)
-            api_thread.daemon = True
-            api_thread.start()
-
-            # 等待结果，最多等待240秒
-            try:
-                result = result_queue.get(timeout=240)
-
-                # 检查结果是否为异常
-                if isinstance(result, Exception):
-                    raise result
-
-                # 提取助理回复
-                assistant_reply = result.choices[0].message.content.strip()
-                return assistant_reply
-
-            except queue.Empty:
-                return "AI分析超时，无法获取分析结果。请稍后再试。"
-            except Exception as e:
-                return f"AI分析过程中发生错误: {str(e)}"
+            return self.get_ai_analysis_from_prompt(prompt)
 
         except Exception as e:
-            self.logger.error(f"AI分析发生错误: {str(e)}")
-            return f"AI分析过程中发生错误，请稍后再试。错误信息: {str(e)}"
+            self.logger.error(f"构建个股分析prompt时出错: {str(e)}")
+            return f"AI分析过程中发生错误: {str(e)}"
 
     def _calculate_bb_position(self, df):
         """计算价格在布林带中的位置"""
@@ -1079,7 +1068,7 @@ class StockAnalyzer:
             date = news.get('date', '')
             title = news.get('title', '')
             source = news.get('source', '')
-            formatted += f"   {i + 1}. [{date}] {title} (来源: {source})\n"
+            formatted += f"   {i + 1}. [{date}] {title} (来源: {source})\\n"
 
         return formatted
 
@@ -1093,7 +1082,7 @@ class StockAnalyzer:
             date = ann.get('date', '')
             title = ann.get('title', '')
             type_ = ann.get('type', '')
-            formatted += f"   {i + 1}. [{date}] {title} (类型: {type_})\n"
+            formatted += f"   {i + 1}. [{date}] {title} (类型: {type_})\\n"
 
         return formatted
 
@@ -1134,7 +1123,7 @@ class StockAnalyzer:
                 'macd_signal': 'BUY' if latest['MACD'] > latest['Signal'] else 'SELL',
                 'volume_status': '放量' if latest['Volume_Ratio'] > 1.5 else '平量',
                 'recommendation': self.get_recommendation(score),
-                'ai_analysis': self.get_ai_analysis(df, stock_code)
+                'ai_analysis': self._build_stock_prompt_and_get_analysis(df, stock_code)
             }
 
             return report
@@ -1609,7 +1598,7 @@ class StockAnalyzer:
                     'action': self.get_recommendation(technical_score['total']),
                     'key_points': []
                 },
-                'ai_analysis': self.get_ai_analysis(df, stock_code)
+                'ai_analysis': self._build_stock_prompt_and_get_analysis(df, stock_code)
             }
 
             # 最后检查并修复报告结构
