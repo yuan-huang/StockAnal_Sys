@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   stockanal_sys:
     build: .
@@ -8,20 +6,108 @@ services:
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
-      - FLASK_APP=web_server.py
+      - FLASK_APP=app.web.web_server:app
     volumes:
-    #  - sqlite_data:/app/data # 如果需要持久化数据，请使用sqlite_data 在env文件中设置USE_DATABASE=True
-      - .env:/app/.env # 环境变量.env文件
+      - .env:/app/.env
     depends_on:
       - redis
-  # redis 缓存
+      - mongodb
+    networks:
+      - sys-network
+
+  # MongoDB数据库服务
+  mongodb:
+    image: mongo:4.4
+    container_name: sys-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: tradingagents123
+      MONGO_INITDB_DATABASE: tradingagents
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - sys-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis缓存服务
   redis:
-    image: redis:6.2-alpine
+    image: redis:latest
+    container_name: sys-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes --requirepass tradingagents123
     volumes:
       - redis_data:/data
+    networks:
+      - sys-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
+  # Redis Commander管理界面
+  redis-commander:
+    image: ghcr.io/joeferner/redis-commander:latest
+    container_name: stockanal_sys-redis-commander
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:tradingagents123
+    networks:
+      - sys-network
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Mongo Express管理界面 (可选)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: stockanal_sys-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8082:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: tradingagents123
+      ME_CONFIG_MONGODB_URL: mongodb://admin:tradingagents123@mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: tradingagents123
+    networks:
+      - sys-network
+    depends_on:
+      - mongodb
+    profiles:
+      - management  # 使用 --profile management 启动
+
+# 数据卷定义
 volumes:
+  mongodb_data:
+    driver: local
+    name: sys_mongodb_data
   redis_data:
-  #sqlite_data: 
+    driver: local
+    name: sys_redis_data
+
+# 网络定义
+networks:
+  sys-network:
+    driver: bridge
+    name: sys-network

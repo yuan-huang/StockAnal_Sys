@@ -42,7 +42,7 @@ import os
 
 # 将 tradingagents 目录添加到系统路径
 # 这允许应用从 tradingagents 代码库中导入模块
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../tradingagents')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../tradingagents')))
 
 
 # 加载环境变量

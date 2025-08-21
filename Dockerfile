@@ -1,17 +1,16 @@
-# 使用Python 3.11基础镜像（因为你的依赖包兼容性更好）
-FROM python:3.11-slim
+# 使用官方Python镜像替代GitHub Container Registry
+FROM python:3.11-slim-bookworm
 
-# 设置工作目录
+# 安装uv包管理器
+RUN pip install -i https://mirrors.aliyun.com/pypi/simple uv
+
 WORKDIR /app
 
-# 创建数据和日志目录
 RUN mkdir -p /app/data /app/logs
 
-# 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# 更新源列表并更换为阿里云源
 RUN echo 'deb http://mirrors.aliyun.com/debian/ bookworm main' > /etc/apt/sources.list && \
     echo 'deb-src http://mirrors.aliyun.com/debian/ bookworm main' >> /etc/apt/sources.list && \
     echo 'deb http://mirrors.aliyun.com/debian/ bookworm-updates main' >> /etc/apt/sources.list && \
@@ -19,22 +18,33 @@ RUN echo 'deb http://mirrors.aliyun.com/debian/ bookworm main' > /etc/apt/source
     echo 'deb http://mirrors.aliyun.com/debian-security bookworm-security main' >> /etc/apt/sources.list && \
     echo 'deb-src http://mirrors.aliyun.com/debian-security bookworm-security main' >> /etc/apt/sources.list
 
-# 安装系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    wkhtmltopdf \
+    xvfb \
+    fonts-wqy-zenhei \
+    fonts-wqy-microhei \
+    fonts-liberation \
+    pandoc \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制requirements.txt
 COPY requirements.txt .
 
-# 安装Python依赖
-RUN pip install --no-cache-dir -r requirements.txt
+#多源轮询安装依赖
+RUN set -e; \
+    for src in \
+        https://mirrors.aliyun.com/pypi/simple \
+        https://pypi.tuna.tsinghua.edu.cn/simple \
+        https://pypi.doubanio.com/simple \
+        https://pypi.org/simple; do \
+      echo "Try installing from $src"; \
+      pip install --no-cache-dir -r requirements.txt -i $src && break; \
+      echo "Failed at $src, try next"; \
+    done
 
-# 复制应用代码
 COPY . .
 
-# 暴露端口（假设Flask应用运行在5000端口）
 EXPOSE 8888
 
-# 使用gunicorn启动应用
-CMD ["gunicorn", "--bind", "0.0.0.0:8888", "--workers", "4", "web_server:app"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:8888", "--workers", "4", "app.web.web_server:app"]
