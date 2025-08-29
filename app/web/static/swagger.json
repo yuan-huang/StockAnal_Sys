@@ -1,89 +1,134 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "股票智能分析系统 API",
-    "description": "股票智能分析系统的REST API文档",
+    "title": "股票FinCore AI API",
+    "description": "FinCore AI Stock Analysis System REST API",
     "version": "2.1.0"
   },
   "host": "localhost:8888",
   "basePath": "/",
-  "schemes": ["http", "https"],
+  "schemes": [
+    "http"
+  ],
+  "securityDefinitions": {
+    "APIKeyHeader": {
+      "type": "apiKey",
+      "name": "X-API-KEY",
+      "in": "header"
+    },
+    "HMACSignature": {
+      "type": "apiKey",
+      "name": "X-HMAC-SIGNATURE",
+      "in": "header"
+    }
+  },
   "paths": {
     "/analyze": {
       "post": {
-        "summary": "分析股票",
-        "description": "分析单只或多只股票",
+        "summary": "Analyze a single stock",
+        "description": "Performs a comprehensive analysis of a single stock, including technical indicators, fundamental data, and AI-driven insights. This is a synchronous operation.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "APIKeyHeader": [],
+            "HMACSignature": []
+          }
+        ],
         "parameters": [
           {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "type": "object",
-              "properties": {
-                "stock_codes": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "example": ["600519", "000858"]
-                },
-                "market_type": {
-                  "type": "string",
-                  "example": "A"
-                }
-              }
+              "$ref": "#/definitions/AnalysisRequest"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "成功分析股票"
+            "description": "Successful analysis",
+            "schema": {
+              "$ref": "#/definitions/AnalysisResult"
+            }
           },
           "400": {
-            "description": "请求参数错误"
+            "description": "Invalid input",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
           },
           "500": {
-            "description": "服务器内部错误"
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
           }
         }
       }
     },
     "/api/start_stock_analysis": {
       "post": {
-        "summary": "启动股票分析任务",
-        "description": "启动异步股票分析任务",
+        "summary": "Start a stock analysis task",
+        "description": "Starts an asynchronous stock analysis task. The client should poll the status endpoint to get the result.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "APIKeyHeader": [],
+            "HMACSignature": []
+          }
+        ],
         "parameters": [
           {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "type": "object",
-              "properties": {
-                "stock_code": {
-                  "type": "string",
-                  "example": "600519"
-                },
-                "market_type": {
-                  "type": "string",
-                  "example": "A"
-                }
-              }
+              "$ref": "#/definitions/AnalysisRequest"
             }
           }
         ],
         "responses": {
-          "200": {
-            "description": "成功启动分析任务"
+          "202": {
+            "description": "Task accepted",
+            "schema": {
+              "$ref": "#/definitions/TaskCreationResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
           }
         }
       }
     },
 "/api/analysis_status/{task_id}": {
       "get": {
-        "summary": "获取分析任务状态",
-        "description": "获取异步分析任务的状态和结果",
+        "summary": "Get analysis task status",
+        "description": "Retrieves the status and result of an asynchronous analysis task.",
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "APIKeyHeader": [],
+            "HMACSignature": []
+          }
+        ],
         "parameters": [
           {
             "name": "task_id",
@@ -94,58 +139,93 @@
         ],
         "responses": {
           "200": {
-            "description": "成功获取任务状态和结果"
+            "description": "Task status",
+            "schema": {
+              "$ref": "#/definitions/TaskStatusResponse"
+            }
           },
           "404": {
-            "description": "找不到指定的任务"
+            "description": "Task not found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
           }
         }
       }
     },
     "/api/stock_data": {
       "get": {
-        "summary": "获取股票数据",
-        "description": "获取股票历史数据和技术指标",
+        "summary": "Get historical stock data",
+        "description": "Retrieves historical price data and technical indicators for a given stock.",
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "APIKeyHeader": [],
+            "HMACSignature": []
+          }
+        ],
         "parameters": [
           {
             "name": "stock_code",
             "in": "query",
             "required": true,
-            "type": "string"
+            "type": "string",
+            "description": "The stock code, e.g., '600519'"
           },
           {
             "name": "market_type",
             "in": "query",
             "required": false,
             "type": "string",
-            "default": "A"
+            "default": "A",
+            "description": "Market type: 'A', 'HK', or 'US'"
           },
           {
             "name": "period",
             "in": "query",
             "required": false,
             "type": "string",
-            "enum": ["1m", "3m", "6m", "1y"],
-            "default": "1y"
+            "enum": [
+              "1m",
+              "3m",
+              "6m",
+              "1y"
+            ],
+            "default": "1y",
+            "description": "Time period for the data"
           }
         ],
         "responses": {
           "200": {
-            "description": "成功获取股票数据"
+            "description": "Successful retrieval of stock data"
           },
           "400": {
-            "description": "请求参数错误"
-          },
-          "500": {
-            "description": "服务器内部错误"
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
           }
         }
       }
     },
     "/api/start_market_scan": {
       "post": {
-        "summary": "启动市场扫描任务",
-        "description": "启动异步市场扫描任务",
+        "summary": "Start a market scan task",
+        "description": "Starts an asynchronous market scan task to find stocks matching the given criteria.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "APIKeyHeader": [],
+            "HMACSignature": []
+          }
+        ],
         "parameters": [
           {
             "name": "body",
@@ -159,7 +239,10 @@
                   "items": {
                     "type": "string"
                   },
-                  "example": ["600519", "000858"]
+                  "example": [
+                    "600519",
+                    "000858"
+                  ]
                 },
                 "min_score": {
                   "type": "integer",
@@ -174,16 +257,28 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "成功启动扫描任务"
+          "202": {
+            "description": "Task accepted",
+            "schema": {
+              "$ref": "#/definitions/TaskCreationResponse"
+            }
           }
         }
       }
     },
     "/api/scan_status/{task_id}": {
       "get": {
-        "summary": "获取扫描任务状态",
-        "description": "获取异步扫描任务的状态和结果",
+        "summary": "Get scan task status",
+        "description": "Retrieves the status and result of an asynchronous market scan task.",
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "APIKeyHeader": [],
+            "HMACSignature": []
+          }
+        ],
         "parameters": [
           {
             "name": "task_id",
@@ -194,10 +289,76 @@
         ],
         "responses": {
           "200": {
-            "description": "成功获取任务状态和结果"
+            "description": "Task status",
+            "schema": {
+              "$ref": "#/definitions/TaskStatusResponse"
+            }
           },
           "404": {
-            "description": "找不到指定的任务"
+            "description": "Task not found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks": {
+      "get": {
+        "summary": "List all tasks",
+        "description": "Retrieves a list of all current and recently completed tasks.",
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "APIKeyHeader": [],
+            "HMACSignature": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of tasks",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Task"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}": {
+      "delete": {
+        "summary": "Delete a task",
+        "description": "Deletes a completed or failed task from the task manager.",
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "APIKeyHeader": [],
+            "HMACSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task deleted successfully"
+          },
+          "404": {
+            "description": "Task not found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
           }
         }
       }
@@ -541,6 +702,68 @@
     }
   },
   "definitions": {
+    "AnalysisRequest": {
+      "type": "object",
+      "properties": {
+        "stock_code": {
+          "type": "string",
+          "example": "600519"
+        },
+        "market_type": {
+          "type": "string",
+          "example": "A"
+        }
+      },
+      "required": ["stock_code"]
+    },
+    "TaskCreationResponse": {
+        "type": "object",
+        "properties": {
+            "task_id": {
+                "type": "string"
+            }
+        }
+    },
+    "TaskStatusResponse": {
+        "type": "object",
+        "properties": {
+            "task_id": {
+                "type": "string"
+            },
+            "status": {
+                "type": "string"
+            },
+            "result": {
+                "type": "object"
+            }
+        }
+    },
+    "Task": {
+        "type": "object",
+        "properties": {
+            "task_id": {
+                "type": "string"
+            },
+            "status": {
+                "type": "string"
+            },
+            "name": {
+                "type": "string"
+            },
+            "start_time": {
+                "type": "string",
+                "format": "date-time"
+            }
+        }
+    },
+    "Error": {
+        "type": "object",
+        "properties": {
+            "error": {
+                "type": "string"
+            }
+        }
+    },
     "Stock": {
       "type": "object",
       "properties": {

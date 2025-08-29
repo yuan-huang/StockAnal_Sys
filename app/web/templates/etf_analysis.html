@@ -13,6 +13,17 @@
             <h5 class="card-title">输入ETF代码</h5>
             <div class="input-group">
                 <input type="text" id="etf-code-input" class="form-control" placeholder="例如: 510300">
+                <select class="form-select" id="market-type" style="max-width: 100px;">
+                    <option value="A" selected>A股</option>
+                    <option value="HK">港股</option>
+                    <option value="US">美股</option>
+                </select>
+                <select class="form-select" id="analysis-period" style="max-width: 100px;">
+                    <option value="1m">1个月</option>
+                    <option value="3m">3个月</option>
+                    <option value="6m">6个月</option>
+                    <option value="1y" selected>1年</option>
+                </select>
                 <button id="analyze-btn" class="btn btn-primary">开始分析</button>
             </div>
             <small class="form-text text-muted">输入您想分析的ETF基金代码，然后点击“开始分析”按钮。</small>
@@ -130,6 +141,8 @@ $(document).ready(function() {
 
     $('#analyze-btn').click(function() {
         const etfCode = $('#etf-code-input').val().trim();
+        const marketType = $('#market-type').val();
+        const period = $('#analysis-period').val();
         if (!etfCode) {
             showError('请输入有效的ETF代码。');
             return;
@@ -146,7 +159,11 @@ $(document).ready(function() {
             url: '/api/start_etf_analysis',
             type: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify({ etf_code: etfCode }),
+            data: JSON.stringify({ 
+                etf_code: etfCode,
+                market_type: marketType,
+                period: period 
+            }),
             success: function(response) {
                 taskId = response.task_id;
                 if (response.status === 'completed') {

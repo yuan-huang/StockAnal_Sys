@@ -1,64 +1,54 @@
 {% extends "layout.html" %}
 
-{% block title %}首页 - 智能分析系统{% endblock %}
+{% block title %}首页 - FinCore AI{% endblock %}
 
 {% block content %}
-<div class="finance-portal-container">
-    <!-- 左侧导航栏 -->
-    <div class="portal-sidebar">
-        <div class="sidebar-menu">
-            <div class="sidebar-header">
-                <h5><i class="fas fa-th-list"></i> 功能导航</h5>
-            </div>
-            <div class="sidebar-content">
-                <ul class="sidebar-nav">
-                    <li><a href="/dashboard"><i class="fas fa-chart-line"></i> 智能仪表盘</a></li>
-                    <li><a href="/fundamental"><i class="fas fa-file-invoice-dollar"></i> 基本面分析</a></li>
-                    <li><a href="/capital_flow"><i class="fas fa-money-bill-wave"></i> 资金流向</a></li>
-                    <li><a href="/market_scan"><i class="fas fa-search"></i> 市场扫描</a></li>
-                    <li><a href="/scenario_predict"><i class="fas fa-lightbulb"></i> 情景预测</a></li>
-                    <li><a href="/portfolio"><i class="fas fa-briefcase"></i> 投资组合</a></li>
-                    <li><a href="/qa"><i class="fas fa-question-circle"></i> 智能问答</a></li>
-                    <li><a href="/risk_monitor"><i class="fas fa-exclamation-triangle"></i> 风险监控</a></li>
-                    <li><a href="/industry_analysis"><i class="fas fa-industry"></i> 行业分析</a></li>
-                    <li><a href="/agent_analysis"><i class="fas fa-robot"></i> 智能体分析</a></li>
-                </ul>
+<div class="finance-portal-container" style="display: block;">
+
+    <!-- Market Index Charts -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title" id="a-share-title">上证指数</h5>
+                    <div id="a-share-chart" style="height: 150px;"></div>
+                </div>
             </div>
         </div>
-
-<!--        <div class="quick-search mt-4">-->
-<!--            <div class="card">-->
-<!--                <div class="card-header">-->
-<!--                    <h5 class="mb-0"><i class="fas fa-search"></i> 快速分析</h5>-->
-<!--                </div>-->
-<!--                <div class="card-body">-->
-<!--                    <form id="quick-analysis-form">-->
-<!--                        <div class="mb-3">-->
-<!--                            <label for="quick-stock-code" class="form-label">股票代码</label>-->
-<!--                            <input type="text" class="form-control" id="quick-stock-code" placeholder="例如: 600519">-->
-<!--                        </div>-->
-<!--                        <div class="mb-3">-->
-<!--                            <label for="quick-market-type" class="form-label">市场类型</label>-->
-<!--                            <select class="form-select" id="quick-market-type">-->
-<!--                                <option value="A" selected>A股</option>-->
-<!--                                <option value="HK">港股</option>-->
-<!--                                <option value="US">美股</option>-->
-<!--                            </select>-->
-<!--                        </div>-->
-<!--                        <div class="d-grid">-->
-<!--                            <button type="button" class="btn btn-primary" id="quick-analysis-btn">开始分析</button>-->
-<!--                        </div>-->
-<!--                    </form>-->
-<!--                </div>-->
-<!--            </div>-->
-<!--        </div>-->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title" id="hk-share-title">恒生指数</h5>
+                    <div id="hk-share-chart" style="height: 150px;"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title" id="us-share-title">标普500指数</h5>
+                    <div id="us-share-chart" style="height: 150px;"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <div id="main-grid-container" style="display: grid; grid-template-columns: 1fr 300px; grid-template-rows: 1fr 80px; grid-template-areas: 'news hotspot' 'footer footer'; height: calc(100vh - 56px - 200px); overflow: hidden; gap: 15px;">
+
+
     <!-- 中间新闻区域 -->
-    <div class="portal-news">
+    <div class="portal-news" style="grid-area: news;">
         <div class="news-header">
-            <h5><i class="fas fa-newspaper"></i> 实时快讯（来源：财联社）</h5>
-            <div class="news-tools">
+            <h5><i class="fas fa-newspaper"></i> 实时快讯</h5>
+            <div id="news-source-switcher" class="btn-group btn-group-sm ms-3" role="group">
+                <button type="button" class="btn btn-outline-primary active" data-source="cls">财联社</button>
+                <button type="button" class="btn btn-outline-primary" data-source="cjzc">财经早餐</button>
+                <button type="button" class="btn btn-outline-primary" data-source="global_sina">新浪财经</button>
+                <button type="button" class="btn btn-outline-primary" data-source="global_ths">同花顺</button>
+                <button type="button" class="btn btn-outline-primary" data-source="global_em">东方财富</button>
+                <button type="button" class="btn btn-outline-primary" data-source="global_futu">富途牛牛</button>
+            </div>
+            <div class="news-tools ms-auto">
                 <button class="btn btn-sm btn-outline-primary refresh-news-btn">
                     <i class="fas fa-sync-alt"></i>
                 </button>
@@ -79,9 +69,12 @@
     </div>
 
     <!-- 右侧热点区域 -->
-    <div class="portal-hotspot">
-        <div class="hotspot-header">
+    <div class="portal-hotspot" id="hotspot-column" style="grid-area: hotspot;">
+        <div class="hotspot-header d-flex justify-content-between align-items-center">
             <h5><i class="fas fa-fire"></i> 热点</h5>
+            <button id="toggle-hotspot-btn" class="btn btn-sm btn-outline-secondary" title="隐藏热点">
+                <i class="fas fa-eye-slash"></i> 隐藏
+            </button>
         </div>
         <div class="hotspot-content" id="hotspot-list">
             <div class="text-center py-5">
@@ -94,7 +87,7 @@
     </div>
 
     <!-- 页脚固定区域 -->
-    <div class="portal-footer">
+    <div class="portal-footer" style="grid-area: footer;">
         <!-- 页脚市场状态部分 -->
         <div class="market-status">
             <div class="market-group">
@@ -164,7 +157,6 @@
             <div class="ticker-wrapper">
                 <div class="ticker-item">最新消息加载中...</div>
             </div>
-        </div>
     </div>
 </div>
 {% endblock %}
@@ -172,27 +164,6 @@
 {% block scripts %}
 <script>
 $(document).ready(function() {
-    // 快速分析按钮点击事件
-    $('#quick-analysis-btn').click(function() {
-        const stockCode = $('#quick-stock-code').val().trim();
-        const marketType = $('#quick-market-type').val();
-
-        if (!stockCode) {
-            alert('请输入股票代码');
-            return;
-        }
-
-        // 跳转到股票详情页
-        window.location.href = `/stock_detail/${stockCode}?market_type=${marketType}`;
-    });
-
-    // 回车键提交表单
-    $('#quick-stock-code').keypress(function(e) {
-        if (e.which === 13) {
-            $('#quick-analysis-btn').click();
-            return false;
-        }
-    });
 
     // 加载最新新闻
     loadLatestNews();
@@ -216,6 +187,13 @@ $(document).ready(function() {
         loadLatestNews();
     });
 
+    // 新闻源切换事件
+    $('#news-source-switcher').on('click', 'button', function() {
+        $('#news-source-switcher button').removeClass('active');
+        $(this).addClass('active');
+        loadLatestNews();
+    });
+
     // 定时刷新
     setInterval(function() {
         updateMarketStatus();
@@ -235,8 +213,124 @@ $(document).ready(function() {
         updateRefreshCountdown();
     }, 1000);
 
+    // Initial load for market indices
+    loadMarketIndices();
+    // Refresh indices every 5 minutes
+    setInterval(loadMarketIndices, 300000);
+
+    // Toggle hotspot visibility
+    $('#toggle-hotspot-btn').click(function() {
+        const hotspotColumn = $('#hotspot-column');
+        const gridContainer = $('#main-grid-container');
+
+        if (hotspotColumn.is(':visible')) {
+            hotspotColumn.hide();
+            gridContainer.css({
+                'grid-template-columns': '1fr',
+                'grid-template-areas': "'news' 'footer'"
+            });
+            $(this).html('<i class="fas fa-eye"></i> 展开');
+            $(this).attr('title', '显示热点');
+        } else {
+            hotspotColumn.show();
+            gridContainer.css({
+                'grid-template-columns': '1fr 300px',
+                'grid-template-areas': "'news hotspot' 'footer footer'"
+            });
+            $(this).html('<i class="fas fa-eye-slash"></i> 隐藏');
+            $(this).attr('title', '隐藏热点');
+        }
+    });
+
 
 });
+
+// 加载市场指数图表
+function loadMarketIndices() {
+    $.ajax({
+        url: '/api/market_indices',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                renderIndexChart('a-share', response.indices['A-share']);
+                renderIndexChart('hk-share', response.indices['HK-share']);
+                renderIndexChart('us-share', response.indices['US-share']);
+            } else {
+                console.error('Failed to load market indices');
+            }
+        },
+        error: function(err) {
+            console.error('Error loading market indices:', err);
+        }
+    });
+}
+
+// 渲染单个指数图表
+function renderIndexChart(type, indexData) {
+    const chartId = `#${type}-chart`;
+    const titleId = `#${type}-title`;
+
+    $(chartId).html(''); // Clear previous chart
+
+    if (indexData.error || !indexData.data || indexData.data.length === 0) {
+        $(titleId).text(indexData.name || '指数');
+        $(chartId).html(`<div class="d-flex align-items-center justify-content-center h-100 text-muted">${indexData.error || '无可用数据'}</div>`);
+        return;
+    }
+
+    const lastValue = indexData.data[indexData.data.length - 1].value;
+    const firstValue = indexData.data[0].value;
+    const change = lastValue - firstValue;
+    const changePercent = (change / firstValue * 100).toFixed(2);
+    const color = change >= 0 ? '#28a745' : '#dc3545';
+    
+    $(titleId).html(`${indexData.name} <span style="font-size: 0.9rem; color: ${color};">(${changePercent}%)</span>`);
+
+    const options = {
+        series: [{
+            name: indexData.name,
+            data: indexData.data.map(d => [new Date(d.time).getTime(), d.value])
+        }],
+        chart: {
+            type: 'area',
+            height: '100%',
+            sparkline: {
+                enabled: true
+            }
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 2
+        },
+        colors: [color],
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.4,
+                opacityTo: 0.1,
+                stops: [0, 100]
+            }
+        },
+        tooltip: {
+            x: {
+                format: 'HH:mm'
+            },
+            y: {
+                formatter: function (val) {
+                    return val.toFixed(2)
+                }
+            },
+            theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+        },
+        xaxis: {
+            type: 'datetime',
+        }
+    };
+
+    var chart = new ApexCharts(document.querySelector(chartId), options);
+    chart.render();
+}
 
 // 加载最新新闻函数
 function loadLatestNews(silent = false) {
@@ -252,6 +346,7 @@ function loadLatestNews(silent = false) {
     }
 
     const onlyImportant = $('#only-important').is(':checked');
+    const source = $('#news-source-switcher button.active').data('source') || 'cls';
 
     $.ajax({
         url: '/api/latest_news',
@@ -259,7 +354,8 @@ function loadLatestNews(silent = false) {
         data: {
             days: 2,
             limit: 500,
-            important: onlyImportant ? 1 : 0
+            important: onlyImportant ? 1 : 0,
+            source: source
         },
         success: function(response) {
             if (response.success && response.news && response.news.length > 0) {

@@ -6,11 +6,13 @@ import numpy as np
 from stockstats import StockDataFrame
 
 class EtfAnalyzer:
-    def __init__(self, etf_code, stock_analyzer_instance):
+    def __init__(self, etf_code, stock_analyzer_instance, market_type='A', period='1y'):
         self.etf_code = etf_code
+        self.stock_analyzer = stock_analyzer_instance
+        self.market_type = market_type
+        self.period = period
         self.analysis_result = {}
         self.hist_df = None # 用于存储历史数据以供后续分析使用
-        self.stock_analyzer = stock_analyzer_instance # 复用StockAnalyzer实例
 
     def run_analysis(self):
         """
@@ -32,17 +34,28 @@ class EtfAnalyzer:
         """
         print("开始获取基本信息...")
         try:
-            # 使用akshare获取ETF基金概况
-            fund_info_df = ak.fund_etf_fund_info_em(fund=self.etf_code)
+            # 根据市场类型调用不同的接口
+            if self.market_type == 'US':
+                # 美股ETF信息接口，注意函数名和参数可能需要根据akshare文档调整
+                fund_info_df = ak.fund_etf_fund_info_us_em(symbol=self.etf_code)
+            elif self.market_type == 'HK':
+                # 港股ETF信息接口，同样需要注意
+                fund_info_df = ak.fund_etf_fund_info_hk_em(symbol=self.etf_code)
+            else: # 默认为A股
+                fund_info_df = ak.fund_etf_fund_info_em(fund=self.etf_code)
             
             if fund_info_df.empty:
-                info_dict = {"error": "未能获取到该ETF的基本信息，请检查代码是否正确。"}
+                info_dict = {"error": "未能获取到该ETF的基本信息，请检查代码或市场选择是否正确。"}
             else:
-                # 将返回的DataFrame转换成字典，假设第一列是键，第二列是值
                 info_dict = {}
-                for _, row in fund_info_df.iterrows():
-                    if len(row) >= 2:
-                        info_dict[row.iloc[0]] = row.iloc[1]
+                # A股和港股/美股返回的格式可能不同，这里做个兼容性处理
+                if '项目' in fund_info_df.columns and '值' in fund_info_df.columns: # A股格式
+                    for _, row in fund_info_df.iterrows():
+                        info_dict[row['项目']] = row['值']
+                else: # 假设其他市场返回的也是两列
+                     for _, row in fund_info_df.iterrows():
+                        if len(row) >= 2:
+                            info_dict[row.iloc[0]] = row.iloc[1]
 
             self.analysis_result['basic_info'] = info_dict
             print("基本信息获取完成。")
@@ -57,15 +70,29 @@ class EtfAnalyzer:
         """
         print("开始分析市场表现...")
         try:
-            # 获取近一年的历史数据
+            # 根据period动态计算起止日期
             end_date = datetime.now()
-            start_date = end_date - timedelta(days=365)
+            days_map = {
+                '1m': 30,
+                '3m': 90,
+                '6m': 180,
+                '1y': 365
+            }
+            days_to_subtract = days_map.get(self.period, 365) # 默认为1年
+            start_date = end_date - timedelta(days=days_to_subtract)
             
             end_date_str = end_date.strftime('%Y%m%d')
             start_date_str = start_date.strftime('%Y%m%d')
 
-            # 使用后复权数据
-            hist_df = ak.fund_etf_hist_em(symbol=self.etf_code, start_date=start_date_str, end_date=end_date_str, adjust="hfq")
+            # 根据市场类型获取不同的历史数据
+            if self.market_type == 'US':
+                hist_df = ak.fund_etf_hist_us_em(symbol=self.etf_code, start_date=start_date_str, end_date=end_date_str)
+            elif self.market_type == 'HK':
+                # 注意：港股ETF数据可能需要不同的akshare函数或参数，此处为示例
+                # 假设 ak.fund_etf_hist_em 可以通过市场参数区分
+                hist_df = ak.fund_etf_hist_em(symbol=self.etf_code, start_date=start_date_str, end_date=end_date_str, adjust="hfq")
+            else: # 默认为A股
+                hist_df = ak.fund_etf_hist_em(symbol=self.etf_code, start_date=start_date_str, end_date=end_date_str, adjust="hfq")
 
             if hist_df.empty:
                 self.analysis_result['market_performance'] = {"error": "未能获取到该ETF的历史行情数据。"}
@@ -161,10 +188,20 @@ class EtfAnalyzer:
             print("市场表现分析(回报率、流动性、技术指标)完成。")
 
             # --- 与基准对比 ---
-            benchmark_code = 'sh000300' # 默认使用沪深300作为基准
+            benchmark_map = {
+                'A': 'sh000300', # A股 -> 沪深300
+                'HK': 'HKHSI',   # 港股 -> 恒生指数
+                'US': '.INX'     # 美股 -> 标普500 (注意代码可能需要调整)
+            }
+            benchmark_code = benchmark_map.get(self.market_type, 'sh000300')
             print(f"开始与基准 {benchmark_code} 进行对比...")
-            
-            benchmark_df = ak.stock_zh_index_daily(symbol=benchmark_code)
+
+            if self.market_type == 'US':
+                benchmark_df = ak.index_us_daily(symbol=benchmark_code)
+            elif self.market_type == 'HK':
+                benchmark_df = ak.index_hk_daily(symbol=benchmark_code)
+            else:
+                benchmark_df = ak.stock_zh_index_daily(symbol=benchmark_code)
             benchmark_df['date'] = pd.to_datetime(benchmark_df['date'])
             benchmark_df.set_index('date', inplace=True)
             

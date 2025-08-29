@@ -9,17 +9,23 @@
 import akshare as ak
 import pandas as pd
 import numpy as np
+from app.core.cache import get_cache
 
 
 class FundamentalAnalyzer:
     def __init__(self):
         """初始化基础分析类"""
-        self.data_cache = {}
+        self.cache = get_cache()
 
     def get_financial_indicators(self, stock_code, progress_callback=None):
         """获取财务指标数据"""
-        if progress_callback:
-            progress_callback(5, "正在获取财务指标...")
+        cache_key = f"get_financial_indicators:{stock_code}"
+        cached_data = self.cache.get(cache_key)
+        if cached_data:
+            if progress_callback:
+                progress_callback(10, "财务指标获取成功 (来自缓存)")
+            return cached_data
+
         try:
             # 获取基本财务指标
             financial_data = ak.stock_financial_analysis_indicator(symbol=stock_code,start_year="2022")
@@ -45,11 +51,19 @@ class FundamentalAnalyzer:
             if progress_callback:
                 progress_callback(10, f"财务指标获取失败: {e}")
             return {}
+        
+        self.cache.set(cache_key, indicators)
+        return indicators
 
     def get_growth_data(self, stock_code, progress_callback=None):
         """获取成长性数据"""
-        if progress_callback:
-            progress_callback(15, "正在获取成长性数据...")
+        cache_key = f"get_growth_data:{stock_code}"
+        cached_data = self.cache.get(cache_key)
+        if cached_data:
+            if progress_callback:
+                progress_callback(20, "成长性数据获取成功 (来自缓存)")
+            return cached_data
+
         try:
             # 获取历年财务数据
             financial_data = ak.stock_financial_abstract(symbol=stock_code)
@@ -95,6 +109,9 @@ class FundamentalAnalyzer:
             if progress_callback:
                 progress_callback(20, f"成长性数据获取失败: {e}")
             return {}
+
+        self.cache.set(cache_key, growth)
+        return growth
 
     def _calculate_cagr(self, series, years):
         """计算复合年增长率"""

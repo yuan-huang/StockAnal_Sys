@@ -6,7 +6,7 @@ RUN pip install -i https://mirrors.aliyun.com/pypi/simple uv
 
 WORKDIR /app
 
-RUN mkdir -p /app/data /app/logs
+RUN mkdir -p /app/data/logs
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
@@ -47,4 +47,4 @@ COPY . .
 
 EXPOSE 8888
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8888", "--workers", "4", "app.web.web_server:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8888", "--workers", "4", "--access-logfile", "data/logs/gunicorn.access.log", "--error-logfile", "data/logs/gunicorn.error.log", "app.web.web_server:app"]

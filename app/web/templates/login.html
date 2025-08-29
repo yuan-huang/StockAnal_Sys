@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+
+{% block title %}管理员登录{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4>管理员登录</h4>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    <form method="POST" action="{{ url_for('login', next=request.args.get('next')) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <div class="mb-3">
+                            <label for="username" class="form-label">用户名</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">密码</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <div class="d-flex justify-content-center">
+                            <button type="submit" class="btn btn-primary px-4">登录</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 隐藏侧边栏和主内容区域的默认边距，因为登录页面不需要它们
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebar = document.querySelector('.col-md-3');
+        const mainContent = document.querySelector('.main-content');
+        if (sidebar) sidebar.style.display = 'none';
+        if (mainContent) {
+            mainContent.classList.remove('col-md-9', 'ms-sm-auto', 'col-lg-10', 'px-md-4');
+            mainContent.classList.add('col-12');
+        }
+    });
+</script>
+{% endblock %}

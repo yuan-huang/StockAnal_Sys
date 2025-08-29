@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, JSON
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, JSON, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -83,6 +83,24 @@ class Portfolio(Base):
         }
 
 
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    password_change_required = Column(Boolean, default=True, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'password_change_required': self.password_change_required
+        }
+
+
+
+
 # 创建会话工厂
 Session = sessionmaker(bind=engine)
 
@@ -96,7 +114,3 @@ def init_db():
 def get_session():
     return Session()
 
-
-# 如果启用数据库，则初始化
-if USE_DATABASE:
-    init_db()

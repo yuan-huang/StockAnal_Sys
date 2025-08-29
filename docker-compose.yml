@@ -7,6 +7,7 @@ services:
       - FLASK_ENV=production
       - FLASK_DEBUG=0
       - FLASK_APP=app.web.web_server:app
+      - RUNNING_IN_DOCKER=true
     volumes:
       - .env:/app/.env
     depends_on:

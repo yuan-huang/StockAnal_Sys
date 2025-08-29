@@ -5,11 +5,12 @@ import akshare as ak
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from app.core.cache import get_cache
 
 
 class CapitalFlowAnalyzer:
     def __init__(self):
-        self.data_cache = {}
+        self.cache = get_cache()
 
         # 设置日志记录
         logging.basicConfig(level=logging.INFO,
@@ -22,12 +23,11 @@ class CapitalFlowAnalyzer:
             self.logger.info(f"Getting concept fund flow for period: {period}")
 
             # 检查缓存
-            cache_key = f"concept_fund_flow_{period}"
-            if cache_key in self.data_cache:
-                cache_time, cached_data = self.data_cache[cache_key]
-                # 如果在最近一小时内有缓存数据，则返回缓存数据
-                if (datetime.now() - cache_time).total_seconds() < 3600:
-                    return cached_data
+            cache_key = f"get_concept_fund_flow:{period}"
+            cached_data = self.cache.get(cache_key)
+            if cached_data:
+                self.logger.info(f"Cache hit for concept fund flow: {period}")
+                return cached_data
 
             # 从akshare获取数据
             concept_data = ak.stock_fund_flow_concept(symbol=period)
@@ -53,7 +53,7 @@ class CapitalFlowAnalyzer:
                     continue
 
             # 缓存结果
-            self.data_cache[cache_key] = (datetime.now(), result)
+            self.cache.set(cache_key, result, ttl=3600)
 
             return result
         except Exception as e:
@@ -68,12 +68,11 @@ class CapitalFlowAnalyzer:
             self.logger.info(f"Getting individual fund flow ranking for period: {period}")
 
             # 检查缓存
-            cache_key = f"individual_fund_flow_rank_{period}"
-            if cache_key in self.data_cache:
-                cache_time, cached_data = self.data_cache[cache_key]
-                # 如果在最近一小时内有缓存数据，则返回缓存数据
-                if (datetime.now() - cache_time).total_seconds() < 3600:
-                    return cached_data
+            cache_key = f"get_individual_fund_flow_rank:{period}"
+            cached_data = self.cache.get(cache_key)
+            if cached_data:
+                self.logger.info(f"Cache hit for individual fund flow rank: {period}")
+                return cached_data
 
             # 从akshare获取数据
             stock_data = ak.stock_individual_fund_flow_rank(indicator=period)
@@ -108,7 +107,7 @@ class CapitalFlowAnalyzer:
                     continue
 
             # 缓存结果
-            self.data_cache[cache_key] = (datetime.now(), result)
+            self.cache.set(cache_key, result, ttl=3600)
 
             return result
         except Exception as e:
@@ -123,12 +122,11 @@ class CapitalFlowAnalyzer:
             self.logger.info(f"Getting fund flow for stock: {stock_code}, market: {market_type}")
 
             # 检查缓存
-            cache_key = f"individual_fund_flow_{stock_code}_{market_type}"
-            if cache_key in self.data_cache:
-                cache_time, cached_data = self.data_cache[cache_key]
-                # 如果在一小时内有缓存数据，则返回缓存数据
-                if (datetime.now() - cache_time).total_seconds() < 3600:
-                    return cached_data
+            cache_key = f"get_individual_fund_flow:{stock_code}_{market_type}"
+            cached_data = self.cache.get(cache_key)
+            if cached_data:
+                self.logger.info(f"Cache hit for individual fund flow: {stock_code}")
+                return cached_data
 
             # 如果未提供市场类型，则根据股票代码判断
             if not market_type:
@@ -185,7 +183,7 @@ class CapitalFlowAnalyzer:
                 }
 
             # Cache the result
-            self.data_cache[cache_key] = (datetime.now(), result)
+            self.cache.set(cache_key, result, ttl=3600)
 
             return result
         except Exception as e:
@@ -200,12 +198,11 @@ class CapitalFlowAnalyzer:
             self.logger.info(f"Getting stocks for sector: {sector}")
 
             # 检查缓存
-            cache_key = f"sector_stocks_{sector}"
-            if cache_key in self.data_cache:
-                cache_time, cached_data = self.data_cache[cache_key]
-                # 如果在一小时内有缓存数据，则返回缓存数据
-                if (datetime.now() - cache_time).total_seconds() < 3600:
-                    return cached_data
+            cache_key = f"get_sector_stocks:{sector}"
+            cached_data = self.cache.get(cache_key)
+            if cached_data:
+                self.logger.info(f"Cache hit for sector stocks: {sector}")
+                return cached_data
 
             # 尝试从akshare获取数据
             try:
@@ -231,7 +228,7 @@ class CapitalFlowAnalyzer:
                             continue
 
                     # 缓存结果
-                    self.data_cache[cache_key] = (datetime.now(), result)
+                    self.cache.set(cache_key, result, ttl=3600)
                     return result
             except Exception as e:
                 self.logger.warning(f"Failed to get sector stocks from API: {str(e)}")
@@ -239,7 +236,7 @@ class CapitalFlowAnalyzer:
 
             # 如果到达这里，说明无法从API获取数据，返回模拟数据
             result = self._generate_mock_sector_stocks(sector)
-            self.data_cache[cache_key] = (datetime.now(), result)
+            self.cache.set(cache_key, result, ttl=3600)
             return result
 
         except Exception as e:

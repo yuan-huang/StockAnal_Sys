@@ -1,0 +1,240 @@
+{% extends "layout.html" %}
+
+{% block title %}应用日志查看器{% endblock %}
+
+{% block head %}
+<style>
+    /* Light theme styles remain as a fallback */
+    #log-container {
+        font-family: 'Courier New', Courier, monospace;
+        padding: 15px;
+        border-radius: 5px;
+        height: 70vh;
+        overflow-y: scroll;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-size: 0.85rem;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        color: #000;
+    }
+    .log-line { padding: 2px 0; }
+    .log-line.DEBUG { }
+    .log-line.INFO { }
+    .log-line.WARNING { }
+    .log-line.ERROR { font-weight: bold; }
+    .log-line.CRITICAL { font-weight: bold; }
+
+    /* Dark Theme Redesign */
+    html[data-theme="dark"] .log-viewer-page {
+        color: #d4d4d4;
+    }
+
+    html[data-theme="dark"] .log-viewer-card {
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 8px;
+    }
+
+    html[data-theme="dark"] .controls-bar {
+        background-color: #252526;
+        padding: 1rem;
+        border-bottom: 1px solid #333;
+    }
+
+    html[data-theme="dark"] #log-container {
+        background-color: #1a1a1a;
+        color: #ffffff;
+        border: none;
+        height: 75vh;
+    }
+
+    html[data-theme="dark"] .log-line.DEBUG {
+    }
+    html[data-theme="dark"] .log-line.INFO {
+    }
+    html[data-theme="dark"] .log-line.WARNING {
+    }
+    html[data-theme="dark"] .log-line.ERROR {
+        font-weight: bold;
+    }
+    html[data-theme="dark"] .log-line.CRITICAL {
+        font-weight: bold;
+        background-color: #3f0e1a;
+    }
+    
+    html[data-theme="dark"] .form-control, 
+    html[data-theme="dark"] .form-select {
+        background-color: #2a2d2e;
+        border-color: #4a4d4e;
+        color: #d4d4d4;
+    }
+    html[data-theme="dark"] .form-control::placeholder {
+        color: #888;
+    }
+    html[data-theme="dark"] .form-control:focus,
+    html[data-theme="dark"] .form-select:focus {
+        background-color: #2a2d2e;
+        border-color: #0d6efd;
+        color: #d4d4d4;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 log-viewer-page">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">应用日志查看器</h1>
+    </div>
+
+    <div class="card log-viewer-card">
+        <div class="controls-bar">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-2">
+                    <label for="log-level" class="form-label visually-hidden">日志级别</label>
+                    <select id="log-level" class="form-select form-select-sm">
+                        <option value="DEBUG">DEBUG</option>
+                        <option value="INFO" selected>INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="CRITICAL">CRITICAL</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label for="log-filter" class="form-label visually-hidden">关键词过滤</label>
+                    <input type="text" id="log-filter" class="form-control form-control-sm" placeholder="输入关键词过滤...">
+                </div>
+                <div class="col-md-2">
+                     <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="auto-refresh-toggle">
+                        <label class="form-check-label" for="auto-refresh-toggle">自动刷新</label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label for="refresh-interval" class="form-label visually-hidden">刷新间隔</label>
+                    <select id="refresh-interval" class="form-select form-select-sm" disabled>
+                        <option value="1000">每 1 秒</option>
+                        <option value="3000">每 3 秒</option>
+                        <option value="5000" selected>每 5 秒</option>
+                        <option value="10000">每 10 秒</option>
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button id="refresh-logs" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="log-container">
+                <div id="log-content">加载日志中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let autoRefreshInterval;
+
+    function fetchLogs() {
+        const level = $('#log-level').val();
+        const filter = $('#log-filter').val();
+        const logContent = $('#log-content');
+
+        // Only show spinner on initial load
+        if (logContent.html().includes('加载日志中...')) {
+            logContent.html('<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>');
+        }
+
+        $.ajax({
+            url: `/api/logs?level=${level}&filter=${filter}`,
+            type: 'GET',
+            success: function(response) {
+                if (response.error) {
+                    logContent.html(`<p class="text-danger p-3">错误: ${response.error}</p>`);
+                    stopAutoRefresh();
+                    return;
+                }
+                
+                if (response.logs && response.logs.length > 0) {
+                    const formattedLogs = response.logs.map(line => {
+                        let levelClass = '';
+                        if (line.includes('[DEBUG]')) levelClass = 'DEBUG';
+                        else if (line.includes('[INFO]')) levelClass = 'INFO';
+                        else if (line.includes('[WARNING]')) levelClass = 'WARNING';
+                        else if (line.includes('[ERROR]')) levelClass = 'ERROR';
+                        else if (line.includes('[CRITICAL]')) levelClass = 'CRITICAL';
+                        
+                        // Sanitize HTML
+                        const sanitizedLine = line.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+                        return `<div class="log-line ${levelClass}">${sanitizedLine}</div>`;
+                    }).join('');
+                    logContent.html(formattedLogs);
+                } else {
+                    logContent.html('<p class="text-muted p-3">没有找到匹配的日志记录。</p>');
+                }
+
+                // Scroll to bottom only if user is already near the bottom
+                const logContainer = $('#log-container');
+                const isScrolledToBottom = logContainer[0].scrollHeight - logContainer.scrollTop() - logContainer.height() < 100;
+                if(isScrolledToBottom) {
+                    logContainer.scrollTop(logContainer[0].scrollHeight);
+                }
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : '无法加载日志';
+                logContent.html(`<p class="text-danger p-3">请求失败: ${errorMsg}</p>`);
+                stopAutoRefresh();
+            }
+        });
+    }
+
+    function startAutoRefresh() {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        const interval = $('#refresh-interval').val();
+        autoRefreshInterval = setInterval(fetchLogs, interval);
+        $('#refresh-interval').prop('disabled', false);
+    }
+
+    function stopAutoRefresh() {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        $('#refresh-interval').prop('disabled', true);
+    }
+
+    $('#refresh-logs').click(fetchLogs);
+    $('#log-level, #log-filter').on('change keyup', function() {
+        // Trigger manual refresh on filter change
+        if ($('#auto-refresh-toggle').is(':checked')) {
+             startAutoRefresh(); // Restart with new filters
+        } else {
+             fetchLogs();
+        }
+    });
+
+    $('#auto-refresh-toggle').change(function() {
+        if ($(this).is(':checked')) {
+            startAutoRefresh();
+        } else {
+            stopAutoRefresh();
+        }
+    });
+
+    $('#refresh-interval').change(function() {
+        if ($('#auto-refresh-toggle').is(':checked')) {
+            startAutoRefresh(); // Restart with new interval
+        }
+    });
+    
+    // Initial load
+    fetchLogs();
+});
+</script>
+{% endblock %}

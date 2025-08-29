@@ -1,0 +1,106 @@
+{% extends "layout.html" %}
+
+{% block title %}应用配置{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h2">应用配置</h1>
+            <p class="text-muted">在这里管理应用的核心配置。请注意，部分设置可能需要重启应用才能完全生效。</p>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card">
+                <div class="card-header">
+                    LLM & API 配置
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('settings') }}">
+                        <div class="mb-3">
+                            <label for="api_url" class="form-label">OpenAI API URL</label>
+                            <input type="text" class="form-control" id="api_url" name="api_url" value="{{ settings.OPENAI_API_URL }}">
+                            <div class="form-text">用于 OpenAI 兼容 API 的基础 URL。</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="api_key" class="form-label">OpenAI API Key</label>
+                            <input type="password" class="form-control" id="api_key" name="api_key" value="{{ settings.OPENAI_API_KEY }}">
+                            <div class="form-text">您的 API 密钥。将为空白以保护安全。输入新值以更新。</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="api_model" class="form-label">主分析模型</label>
+                            <input type="text" class="form-control" id="api_model" name="api_model" value="{{ settings.OPENAI_API_MODEL }}">
+                            <div class="form-text">用于核心 AI 分析的模型名称。</div>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            <label for="news_model" class="form-label">新闻分析模型</label>
+                            <input type="text" class="form-control" id="news_model" name="news_model" value="{{ settings.NEWS_MODEL }}">
+                            <div class="form-text">用于处理新闻摘要和分析的模型。</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="embedding_model" class="form-label">Embedding 模型</label>
+                            <input type="text" class="form-control" id="embedding_model" name="embedding_model" value="{{ settings.EMBEDDING_MODEL }}">
+                            <div class="form-text">用于生成文本嵌入的模型。</div>
+                        </div>
+                         <div class="mb-3">
+                            <label for="function_call_model" class="form-label">Function Call 模型</label>
+                            <input type="text" class="form-control" id="function_call_model" name="function_call_model" value="{{ settings.FUNCTION_CALL_MODEL }}">
+                            <div class="form-text">用于工具调用的模型。</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">保存配置</button>
+                    </form>
+                </div>
+            </div>
+            <div class="card mt-4">
+                <div class="card-header">
+                    系统控制
+                </div>
+                <div class="card-body">
+                    <p class="card-text">执行系统级操作。请谨慎使用。</p>
+                    <button type="button" class="btn btn-danger" id="restart-system-btn">
+                        <i class="fas fa-power-off me-2"></i>重启系统
+                    </button>
+                    <div class="form-text mt-2">点击此按钮将尝试使用 `start.sh restart` 命令重启应用。</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $('#restart-system-btn').click(function() {
+        if (confirm('您确定要重启系统吗？应用将短暂中断。')) {
+            showInfo('正在发送重启指令...');
+            $.ajax({
+                url: '/api/restart_system',
+                type: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        showSuccess('重启指令已发送。请稍候几秒钟，然后刷新页面。');
+                    } else {
+                        showError('重启失败: ' + (response.error || '未知错误'));
+                    }
+                },
+                error: function(xhr) {
+                    showError('发送重启指令失败: ' + (xhr.responseJSON ? xhr.responseJSON.error : '服务器无响应'));
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,11 +1,11 @@
 
 #!/bin/bash
 
-# 智能分析系统管理脚本
+# FinCore AI管理脚本
 # 功能：启动、停止、重启和监控系统服务
 
 # 配置
-APP_NAME="智能分析系统"
+APP_NAME="FinCore AI"
 APP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 PYTHON_CMD="${APP_DIR}/env/bin/python"
 SERVER_SCRIPT="run.py"

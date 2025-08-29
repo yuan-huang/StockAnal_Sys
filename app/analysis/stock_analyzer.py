@@ -21,6 +21,7 @@ import json
 import threading
 from urllib.parse import urlparse
 from openai import OpenAI
+from app.core.cache import get_cache
 
 # 线程局部存储
 thread_local = threading.local()
@@ -61,7 +62,7 @@ class StockAnalyzer:
         }
 
         # 添加缓存初始化
-        self.data_cache = {}
+        self.cache = get_cache()
 
         # JSON匹配标志
         self.json_match_flag = True
@@ -71,9 +72,11 @@ class StockAnalyzer:
 
         self.logger.info(f"开始获取股票 {stock_code} 数据，市场类型: {market_type}")
 
-        cache_key = f"{stock_code}_{market_type}_{start_date}_{end_date}_price"
-        if cache_key in self.data_cache:
-            return self.data_cache[cache_key].copy()
+        cache_key = f"get_stock_data:{stock_code}_{market_type}_{start_date}_{end_date}_price"
+        cached_data = self.cache.get(cache_key)
+        if cached_data is not None:
+            self.logger.info(f"Cache hit for stock data: {stock_code}")
+            return pd.DataFrame(cached_data)
 
         if start_date is None:
             start_date = (datetime.now() - timedelta(days=365)).strftime('%Y%m%d')
@@ -122,7 +125,7 @@ class StockAnalyzer:
 
             # 4. 排序并返回
             result = df.sort_values('date').reset_index(drop=True)
-            self.data_cache[cache_key] = result.copy()
+            self.cache.set(cache_key, result.to_dict('records'))
             
             return result
 
@@ -760,11 +763,11 @@ class StockAnalyzer:
             self.logger.info(f"获取股票 {stock_code} 的相关新闻和信息")
 
             # 缓存键
-            cache_key = f"{stock_code}_{market_type}_news"
-            if cache_key in self.data_cache and (
-                    datetime.now() - self.data_cache[cache_key]['timestamp']).seconds < 3600:
-                # 缓存1小时内的数据
-                return self.data_cache[cache_key]['data']
+            cache_key = f"get_stock_news:{stock_code}_{market_type}_news"
+            cached_data = self.cache.get(cache_key)
+            if cached_data:
+                self.logger.info(f"Cache hit for stock news: {stock_code}")
+                return cached_data
 
             # 获取股票基本信息
             stock_info = self.get_stock_info(stock_code)
@@ -871,7 +874,7 @@ class StockAnalyzer:
             news_data['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
             # 缓存结果
-            self.data_cache[cache_key] = {'data': news_data, 'timestamp': datetime.now()}
+            self.cache.set(cache_key, news_data, ttl=3600)  # 缓存1小时
             return news_data
 
         except Exception as e:
@@ -1284,9 +1287,11 @@ class StockAnalyzer:
         """获取股票基本信息"""
         import akshare as ak
 
-        cache_key = f"{stock_code}_info"
-        if cache_key in self.data_cache:
-            return self.data_cache[cache_key]
+        cache_key = f"get_stock_info:{stock_code}_info"
+        cached_data = self.cache.get(cache_key)
+        if cached_data:
+            self.logger.info(f"Cache hit for stock info: {stock_code}")
+            return cached_data
 
         try:
             # 获取A股股票基本信息
@@ -1335,7 +1340,7 @@ class StockAnalyzer:
             # 增加更多日志来调试问题
             self.logger.info(f"获取到股票信息: 名称={name}, 行业={info_dict.get('行业', '未知')}")
 
-            self.data_cache[cache_key] = info_dict
+            self.cache.set(cache_key, info_dict)
             return info_dict
         except Exception as e:
             self.logger.error(f"获取股票信息失败: {str(e)}")
