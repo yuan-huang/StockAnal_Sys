@@ -1,16 +1,22 @@
 # app/web/api/data.py
 from flask import request, jsonify
 from . import api_blueprint
-from app.web.web_server import analyzer, app, cache # app and cache are still needed here
 from app.web.utils import custom_jsonify
 import akshare as ak
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
+from app.analysis._analysis_container import AnalysisContainer
+from dependency_injector.wiring import inject
+from dependency_injector.wiring import Provide  
+from app.analysis.stock_analyzer import StockAnalyzer
+from app.core.cache import Cache
+from app.analysis.news_fetcher import NewsFetcher
+
 
 @api_blueprint.route('/stock_data', methods=['GET'])
-@cache.cached(timeout=300, query_string=True)
-def get_stock_data():
+@inject
+def get_stock_data(analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_analyzer], cache: Cache = Provide[AnalysisContainer.cache]):
     try:
         stock_code = request.args.get('stock_code')
         market_type = request.args.get('market_type', 'A')
@@ -45,7 +51,8 @@ def get_stock_data():
         return custom_jsonify({'error': str(e)}), 500
 
 @api_blueprint.route('/index_stocks', methods=['GET'])
-def get_index_stocks():
+@inject
+def get_index_stocks(cache: Cache = Provide[AnalysisContainer.cache]):
     try:
         index_code = request.args.get('index_code', '000300')
         
@@ -69,7 +76,8 @@ def get_index_stocks():
         return jsonify({'error': str(e)}), 500
 
 @api_blueprint.route('/industry_stocks', methods=['GET'])
-def get_industry_stocks():
+@inject
+def get_industry_stocks(cache: Cache = Provide[AnalysisContainer.cache]):
     try:
         industry = request.args.get('industry')
         if not industry:
@@ -84,10 +92,9 @@ def get_industry_stocks():
         return jsonify({'error': str(e)}), 500
 
 @api_blueprint.route('/latest_news', methods=['GET'])
-def get_latest_news():
+@inject
+def get_latest_news(news_fetcher: NewsFetcher = Provide[AnalysisContainer.news_fetcher]):
     try:
-        # This endpoint is kept simple as it delegates to the news_fetcher module
-        from app.analysis.news_fetcher import news_fetcher
         days = int(request.args.get('days', 1))
         limit = int(request.args.get('limit', 1000))
         source = request.args.get('source', 'cls')
@@ -100,8 +107,8 @@ def get_latest_news():
         return jsonify({'success': False, 'error': str(e)}), 500
         
 @api_blueprint.route('/market_indices', methods=['GET'])
-@cache.cached(timeout=300)
-def get_market_indices():
+@inject
+def get_market_indices(cache: Cache = Provide[AnalysisContainer.cache]):
     indices = {
         'A-share': {'symbol': '000001', 'name': '上证指数'},
         'HK-share': {'symbol': 'HSI', 'name': '恒生指数'},

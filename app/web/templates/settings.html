@@ -25,7 +25,7 @@
                     LLM & API 配置
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('settings') }}">
+                    <form method="POST" action="{{ url_for('pages.settings') }}">
                         <div class="mb-3">
                             <label for="api_url" class="form-label">OpenAI API URL</label>
                             <input type="text" class="form-control" id="api_url" name="api_url" value="{{ settings.OPENAI_API_URL }}">

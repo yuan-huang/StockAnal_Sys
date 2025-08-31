@@ -1,20 +1,27 @@
 # app/web/api/tasks.py
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from . import api_blueprint
-from app.web.task_manager import task_manager, TaskStatus
-from app.web.web_server import analyzer, EtfAnalyzer, app, admin_required
+from app.analysis.task_manager import TaskStatus, TaskManager
+from app.analysis.etf_analyzer import EtfAnalyzer   
 from app.web.utils import custom_jsonify
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dependency_injector.wiring import inject
+from app.analysis._analysis_container import AnalysisContainer
+from dependency_injector.wiring import Provide
+from app.analysis.stock_analyzer import StockAnalyzer
+
 
 # Generic Task Endpoints
 @api_blueprint.route('/tasks', methods=['GET'])
-def get_tasks():
+@inject
+def get_tasks(task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """Lists all tasks."""
     return custom_jsonify(task_manager.get_all_tasks())
 
 @api_blueprint.route('/tasks/<task_id>', methods=['GET'])
-def get_task(task_id):
+@inject
+def get_task(task_id, task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """Gets a single task by its ID."""
     task = task_manager.get_task(task_id)
     if not task:
@@ -22,8 +29,8 @@ def get_task(task_id):
     return custom_jsonify(task)
 
 @api_blueprint.route('/tasks/<task_id>', methods=['DELETE'])
-@admin_required
-def delete_task(task_id):
+@inject
+def delete_task(task_id, task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """Deletes a task."""
     if task_manager.delete_task(task_id):
         return jsonify({'message': 'Task deleted successfully'}), 200
@@ -32,7 +39,8 @@ def delete_task(task_id):
 
 # Stock Analysis Task
 @api_blueprint.route('/start_stock_analysis', methods=['POST'])
-def start_stock_analysis():
+@inject
+def start_stock_analysis(analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_analyzer], task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """Starts an asynchronous stock analysis task."""
     try:
         data = request.json
@@ -51,9 +59,9 @@ def start_stock_analysis():
                 task_manager.update_task(task_id, status=TaskStatus.RUNNING, progress=10)
                 result = analyzer.perform_enhanced_analysis(stock_code, market_type)
                 task_manager.update_task(task_id, status=TaskStatus.COMPLETED, progress=100, result=result)
-                app.logger.info(f"Analysis task {task_id} completed for {stock_code}")
+                current_app.logger.info(f"Analysis task {task_id} completed for {stock_code}")
             except Exception as e:
-                app.logger.error(f"Analysis task {task_id} failed: {e}", exc_info=True)
+                current_app.logger.error(f"Analysis task {task_id} failed: {e}", exc_info=True)
                 task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
 
         thread = threading.Thread(target=run_analysis, daemon=True)
@@ -61,12 +69,13 @@ def start_stock_analysis():
 
         return jsonify({'task_id': task_id}), 202
     except Exception as e:
-        app.logger.error(f"Failed to start stock analysis task: {e}", exc_info=True)
+        current_app.logger.error(f"Failed to start stock analysis task: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
 # Market Scan Task
 @api_blueprint.route('/start_market_scan', methods=['POST'])
-def start_market_scan():
+@inject
+def start_market_scan(analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_analyzer], task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """Starts an asynchronous market scan task."""
     try:
         data = request.json
@@ -78,7 +87,7 @@ def start_market_scan():
             return jsonify({'error': 'Stock list is required'}), 400
 
         if len(stock_list) > 100:
-            app.logger.warning(f"Stock list too long ({len(stock_list)}), truncating to 100.")
+            current_app.logger.warning(f"Stock list too long ({len(stock_list)}), truncating to 100.")
             stock_list = stock_list[:100]
 
         task_params = {'stock_list_count': len(stock_list), 'min_score': min_score, 'market_type': market_type}
@@ -103,7 +112,7 @@ def start_market_scan():
                             if report and report.get('score', 0) >= min_score:
                                 results.append(report)
                         except Exception as exc:
-                            app.logger.error(f'Error analyzing {stock_code} in market scan: {exc}')
+                            current_app.logger.error(f'Error analyzing {stock_code} in market scan: {exc}')
                         
                         completed_count += 1
                         progress = int((completed_count / total) * 100)
@@ -111,10 +120,10 @@ def start_market_scan():
 
                 results.sort(key=lambda x: x['score'], reverse=True)
                 task_manager.update_task(task_id, status=TaskStatus.COMPLETED, progress=100, result=results)
-                app.logger.info(f"Market scan task {task_id} completed, found {len(results)} matching stocks.")
+                current_app.logger.info(f"Market scan task {task_id} completed, found {len(results)} matching stocks.")
 
             except Exception as e:
-                app.logger.error(f"Market scan task {task_id} failed: {e}", exc_info=True)
+                current_app.logger.error(f"Market scan task {task_id} failed: {e}", exc_info=True)
                 task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
 
         thread = threading.Thread(target=run_scan, daemon=True)
@@ -122,12 +131,13 @@ def start_market_scan():
 
         return jsonify({'task_id': task_id}), 202
     except Exception as e:
-        app.logger.error(f"Failed to start market scan task: {e}", exc_info=True)
+        current_app.logger.error(f"Failed to start market scan task: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
 # ETF Analysis Task
 @api_blueprint.route('/start_etf_analysis', methods=['POST'])
-def start_etf_analysis():
+@inject
+def start_etf_analysis(etf_analyzer: EtfAnalyzer = Provide[AnalysisContainer.etf_analyzer], task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """Starts an asynchronous ETF analysis task."""
     try:
         data = request.json
@@ -148,9 +158,9 @@ def start_etf_analysis():
                 etf_analyzer_instance = EtfAnalyzer(etf_code, analyzer, market_type, period)
                 result = etf_analyzer_instance.run_analysis()
                 task_manager.update_task(task_id, status=TaskStatus.COMPLETED, progress=100, result=result)
-                app.logger.info(f"ETF analysis task {task_id} completed for {etf_code}")
+                current_app.logger.info(f"ETF analysis task {task_id} completed for {etf_code}")
             except Exception as e:
-                app.logger.error(f"ETF analysis task {task_id} failed: {e}", exc_info=True)
+                current_app.logger.error(f"ETF analysis task {task_id} failed: {e}", exc_info=True)
                 task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
 
         thread = threading.Thread(target=run_etf_analysis, daemon=True)
@@ -158,5 +168,5 @@ def start_etf_analysis():
 
         return jsonify({'task_id': task_id}), 202
     except Exception as e:
-        app.logger.error(f"Failed to start ETF analysis task: {e}", exc_info=True)
+        current_app.logger.error(f"Failed to start ETF analysis task: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500

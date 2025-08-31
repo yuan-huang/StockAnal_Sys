@@ -1,88 +1,111 @@
 # app/core/cache.py
-import redis
 import json
-from datetime import datetime, time
+from datetime import datetime
 import os
-import threading
 import logging
-from .connections import REDIS_URL_CACHE, IS_DOCKER # Import centralized URL
+import redis
 
-# USE_REDIS_CACHE is still useful to allow disabling Redis for specific debugging.
-USE_REDIS_CACHE = os.getenv('USE_REDIS_CACHE', 'True').lower() == 'true'
+logger = logging.getLogger(__name__)
 
-class CacheManager:
-    _instance = None
-    _lock = threading.Lock()
-
-    def __new__(cls, *args, **kwargs):
-        with cls._lock:
-            if not cls._instance:
-                cls._instance = super(CacheManager, cls).__new__(cls)
-        return cls._instance
-
-    def __init__(self):
-        if not hasattr(self, 'initialized'):  # 防止重复初始化
-            self.logger = logging.getLogger(__name__)
-            if USE_REDIS_CACHE:
-                try:
-                    self.redis_client = redis.from_url(REDIS_URL_CACHE) # Use centralized URL
-                    self.redis_client.ping()
-                    self.cache_type = 'redis'
-                    self.logger.info(f"Successfully connected to Redis for CacheManager. Docker mode: {IS_DOCKER}")
-                except redis.exceptions.ConnectionError as e:
-                    self.logger.warning(f"Could not connect to Redis for Cache. Falling back to in-memory. Error: {e}")
-                    self.in_memory_cache = {}
-                    self.cache_type = 'memory'
-            else:
-                self.in_memory_cache = {}
+class Cache:
+    def __init__(self, redis_client=None):
+        """
+        初始化缓存
+        Args:
+            redis_client: Redis客户端实例，通过依赖注入提供
+        """
+        self.logger = logging.getLogger(__name__)
+        self.redis_client = redis_client
+        
+        # 检查是否启用Redis缓存
+        use_redis = os.getenv('USE_REDIS_CACHE', 'False').lower() == 'true'
+        
+        if use_redis and redis_client:
+            try:
+                redis_client.ping()
+                self.cache_type = 'redis'
+                self.logger.info("缓存初始化成功 - 使用Redis")
+            except Exception as e:
+                self.logger.warning(f"Redis连接失败，使用内存缓存: {e}")
                 self.cache_type = 'memory'
-                self.logger.info("Redis cache is disabled. Using in-memory cache.")
-            self.initialized = True
-            self.last_cleared_date = datetime.now().date()
+                self._memory_cache = {}
+        else:
+            self.cache_type = 'memory'
+            self._memory_cache = {}
+            self.logger.info("缓存初始化成功 - 使用内存缓存")
 
     def get(self, key):
-        self._clear_cache_if_new_day()
-        if self.cache_type == 'redis':
-            value = self.redis_client.get(key)
-            return json.loads(value) if value else None
-        else:
-            return self.in_memory_cache.get(key)
+        """获取缓存值"""
+        try:
+            if self.cache_type == 'redis' and self.redis_client:
+                value = self.redis_client.get(key)
+                if value:
+                    return json.loads(value)
+            else:
+                return self._memory_cache.get(key)
+        except Exception as e:
+            self.logger.error(f"获取缓存失败 {key}: {e}")
+        return None
 
-    def set(self, key, value, ttl=3600): # 默认1小时过期
-        self._clear_cache_if_new_day()
-        if self.cache_type == 'redis':
-            self.redis_client.set(key, json.dumps(value), ex=ttl)
-        else:
-            self.in_memory_cache[key] = value
+    def set(self, key, value, expire=3600):
+        """设置缓存值"""
+        try:
+            if self.cache_type == 'redis' and self.redis_client:
+                self.redis_client.setex(key, expire, json.dumps(value, ensure_ascii=False))
+            else:
+                # 内存缓存暂不处理过期时间
+                self._memory_cache[key] = value
+        except Exception as e:
+            self.logger.error(f"设置缓存失败 {key}: {e}")
 
-    def _clear_cache_if_new_day(self):
-        """
-        检查是否是新的交易日，如果是，则清空缓存。
-        收盘时间定义为16:00。
-        """
-        now = datetime.now()
-        today = now.date()
+    def delete(self, key):
+        """删除缓存"""
+        try:
+            if self.cache_type == 'redis' and self.redis_client:
+                self.redis_client.delete(key)
+            else:
+                self._memory_cache.pop(key, None)
+        except Exception as e:
+            self.logger.error(f"删除缓存失败 {key}: {e}")
+
+    def clear(self):
+        """清空所有缓存"""
+        try:
+            if self.cache_type == 'redis' and self.redis_client:
+                self.redis_client.flushdb()
+            else:
+                self._memory_cache.clear()
+        except Exception as e:
+            self.logger.error(f"清空缓存失败: {e}")
+
+    def exists(self, key):
+        """检查缓存是否存在"""
+        try:
+            if self.cache_type == 'redis' and self.redis_client:
+                return self.redis_client.exists(key)
+            else:
+                return key in self._memory_cache
+        except Exception as e:
+            self.logger.error(f"检查缓存存在性失败 {key}: {e}")
+            return False
+
+    def get_cache_info(self):
+        """获取缓存信息"""
+        info = {
+            'type': self.cache_type,
+            'status': 'connected' if self.cache_type == 'redis' else 'memory'
+        }
         
-        # 如果当前日期大于上次清理日期，则执行清理
-        if today > self.last_cleared_date:
-            # A股收盘时间为15:00，我们可以在16:00后清理，确保数据已固化
-            market_close_time = time(16, 0)
-            
-            if now.time() > market_close_time:
-                print(f"New day detected ({today}). Clearing all cache.")
-                self.clear_all()
-                self.last_cleared_date = today
-
-    def clear_all(self):
-        if self.cache_type == 'redis':
-            self.redis_client.flushdb()
-            print("Redis cache cleared.")
-        else:
-            self.in_memory_cache.clear()
-            print("In-memory cache cleared.")
-
-# 全局缓存实例
-cache_manager = CacheManager()
-
-def get_cache():
-    return cache_manager
+        try:
+            if self.cache_type == 'redis' and self.redis_client:
+                info['size'] = self.redis_client.dbsize()
+                redis_info = self.redis_client.info()
+                info['memory_usage'] = redis_info.get('used_memory_human', 'N/A')
+            else:
+                info['size'] = len(self._memory_cache)
+                info['memory_usage'] = 'N/A'
+        except Exception as e:
+            self.logger.error(f"获取缓存信息失败: {e}")
+            info['error'] = str(e)
+        
+        return info

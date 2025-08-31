@@ -894,8 +894,8 @@
                             <i class="fas fa-user-shield"></i> 系统设置
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="adminMenu">
-                            <li><a class="dropdown-item {% if request.path == '/settings' %}active{% endif %}" href="{{ url_for('settings') }}"><i class="fas fa-cog"></i> 应用配置</a></li>
-                            <li><a class="dropdown-item {% if request.path == '/logs' %}active{% endif %}" href="{{ url_for('logs_page') }}"><i class="fas fa-file-alt"></i> 日志查看</a></li>
+                            <li><a class="dropdown-item {% if request.path == '/settings' %}active{% endif %}" href="{{ url_for('pages.settings') }}"><i class="fas fa-cog"></i> 应用配置</a></li>
+                            <li><a class="dropdown-item {% if request.path == '/logs' %}active{% endif %}" href="{{ url_for('pages.logs_page') }}"><i class="fas fa-file-alt"></i> 日志查看</a></li>
                         </ul>
                     </li>
                     {% endif %}
@@ -920,11 +920,11 @@
                             <span class="d-none d-lg-block">{{ session.username }}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenu">
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>登出</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('pages.logout') }}"><i class="fas fa-sign-out-alt me-2"></i>登出</a></li>
                         </ul>
                     </div>
                     {% else %}
-                    <a class="btn btn-outline-light ms-3 text-nowrap" href="{{ url_for('login') }}">
+                    <a class="btn btn-outline-light ms-3 text-nowrap" href="{{ url_for('pages.login') }}">
                         <i class="fas fa-sign-in-alt me-2"></i>登录
                     </a>
                     {% endif %}

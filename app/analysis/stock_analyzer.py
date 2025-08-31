@@ -21,7 +21,7 @@ import json
 import threading
 from urllib.parse import urlparse
 from openai import OpenAI
-from app.core.cache import get_cache
+from app.core.cache import Cache
 
 # 线程局部存储
 thread_local = threading.local()
@@ -32,7 +32,7 @@ class StockAnalyzer:
     股票分析器 - 原有API保持不变，内部实现增强
     """
 
-    def __init__(self, initial_cash=1000000):
+    def __init__(self, cache: Cache, initial_cash=1000000):
         # 设置日志
         self.logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ class StockAnalyzer:
         }
 
         # 添加缓存初始化
-        self.cache = get_cache()
+        self.cache = cache
 
         # JSON匹配标志
         self.json_match_flag = True

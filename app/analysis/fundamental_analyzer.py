@@ -9,13 +9,14 @@
 import akshare as ak
 import pandas as pd
 import numpy as np
-from app.core.cache import get_cache
+from app.core.cache import Cache
 
 
 class FundamentalAnalyzer:
-    def __init__(self):
+    
+    def __init__(self, cache):
         """初始化基础分析类"""
-        self.cache = get_cache()
+        self.cache = cache
 
     def get_financial_indicators(self, stock_code, progress_callback=None):
         """获取财务指标数据"""

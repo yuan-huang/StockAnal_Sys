@@ -5,12 +5,12 @@ import akshare as ak
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from app.core.cache import get_cache
+from app.core.cache import Cache
 
 
 class CapitalFlowAnalyzer:
-    def __init__(self):
-        self.cache = get_cache()
+    def __init__(self, cache):
+        self.cache = cache
 
         # 设置日志记录
         logging.basicConfig(level=logging.INFO,
