@@ -17,25 +17,24 @@ class TaskStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class TaskManager(str):
+class TaskManager:
     def __init__(self, redis_client):
         self.logger = logging.getLogger(__name__)
         try:
             self.redis_client = redis_client
             if self.redis_client:
                 self.redis_client.ping()
-            self.logger.info(f"Successfully connected to Redis for TaskManager. Docker mode: {IS_DOCKER}")
         except redis.exceptions.ConnectionError as e:
             self.logger.error(f"FATAL: Could not connect to Redis for TaskManager. Tasks will not be operational. Error: {e}")
             self.redis_client = None
 
     def _serialize(self, data):
         if data is None:
-            return None
+            return ""
         return json.dumps(data)
 
     def _deserialize(self, data):
-        if data is None:
+        if data is None or data == "":
             return None
         return json.loads(data)
 
@@ -136,7 +135,8 @@ class TaskManager(str):
         if error is not None:
             update_data['error'] = self._serialize(error)
         
-        self.redis_client.hset(task_key, mapping=update_data)
+        # 使用HMSET命令兼容Redis 3.x
+        self.redis_client.hmset(task_key, update_data)
         return self.get_task(task_id)
 
     def delete_task(self, task_id):
@@ -170,15 +170,18 @@ class TaskManager(str):
         
         to_delete = []
         for task_id in task_ids:
-            task_status, updated_at_iso = self.redis_client.hmget(f"task:{task_id}", ['status', 'updated_at'])
-            if task_status in [TaskStatus.COMPLETED.value, TaskStatus.FAILED.value, TaskStatus.CANCELLED.value]:
-                try:
-                    updated_at = datetime.fromisoformat(updated_at_iso)
-                    if updated_at.timestamp() < cutoff_timestamp:
+            task_data = self.redis_client.hmget(f"task:{task_id}", ['status', 'updated_at'])
+            if len(task_data) == 2:
+                task_status, updated_at_iso = task_data
+                if task_status and task_status in [TaskStatus.COMPLETED.value, TaskStatus.FAILED.value, TaskStatus.CANCELLED.value]:
+                    try:
+                        if updated_at_iso:
+                            updated_at = datetime.fromisoformat(updated_at_iso)
+                            if updated_at.timestamp() < cutoff_timestamp:
+                                to_delete.append(task_id)
+                    except (ValueError, TypeError):
+                        # Invalid timestamp, mark for deletion
                         to_delete.append(task_id)
-                except (ValueError, TypeError):
-                    # Invalid timestamp, mark for deletion
-                    to_delete.append(task_id)
         
         if to_delete:
             for task_id in to_delete:

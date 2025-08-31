@@ -1,0 +1,28 @@
+@import './styles/variables.scss';
+@import './styles/mixins.scss';
+
+/* 全局样式 */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: $font-family;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 自定义组件样式 */
+.btn-primary {
+  @include button-primary;
+}
+
+.btn-secondary {
+  @include button-secondary;
+}
+
+.card {
+  @include card-base;
+} 

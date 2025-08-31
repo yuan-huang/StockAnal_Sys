@@ -137,7 +137,7 @@ def start_market_scan(analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_
 # ETF Analysis Task
 @api_blueprint.route('/start_etf_analysis', methods=['POST'])
 @inject
-def start_etf_analysis(etf_analyzer: EtfAnalyzer = Provide[AnalysisContainer.etf_analyzer], task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
+def start_etf_analysis(etf_analyzer_factory = Provide[AnalysisContainer.etf_analyzer], task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """Starts an asynchronous ETF analysis task."""
     try:
         data = request.json
@@ -155,7 +155,8 @@ def start_etf_analysis(etf_analyzer: EtfAnalyzer = Provide[AnalysisContainer.etf
         def run_etf_analysis():
             try:
                 task_manager.update_task(task_id, status=TaskStatus.RUNNING, progress=10)
-                etf_analyzer_instance = EtfAnalyzer(etf_code, analyzer, market_type, period)
+                # 使用工厂创建EtfAnalyzer实例
+                etf_analyzer_instance = etf_analyzer_factory(etf_code, market_type, period)
                 result = etf_analyzer_instance.run_analysis()
                 task_manager.update_task(task_id, status=TaskStatus.COMPLETED, progress=100, result=result)
                 current_app.logger.info(f"ETF analysis task {task_id} completed for {etf_code}")

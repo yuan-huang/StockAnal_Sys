@@ -28,7 +28,18 @@ from app.analysis._analysis_container import AnalysisContainer
 
 # 创建并配置依赖注入容器
 analysis_container = AnalysisContainer()
-analysis_container.wire(modules=[__name__])
+# 将依赖注入容器连接到所有相关模块
+analysis_container.wire(modules=[
+    __name__,  # 主模块
+    'app.web.api',  # API模块
+    'app.web.api.tasks',  # 任务模块
+    'app.web.api.stock_analysis',  # 股票分析模块
+    'app.web.api.data',  # 数据模块
+    'app.web.api.analysis',  # 分析模块
+    'app.web.api.us_stocks',  # 美股模块
+    'app.web.api.capital_flow',  # 资金流模块
+    'app.web.api.system',  # 系统模块
+])
 
 # 定义日志格式
 logging.basicConfig(

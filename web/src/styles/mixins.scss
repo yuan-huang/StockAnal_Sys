@@ -1,0 +1,87 @@
+@import './variables.scss';
+
+// 弹性布局混入
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+// 按钮样式混入
+@mixin button-base {
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $border-radius-md;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all $transition-fast;
+  
+  &:hover {
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+@mixin button-primary {
+  @include button-base;
+  background-color: $primary-color;
+  color: white;
+  
+  &:hover {
+    background-color: $primary-hover;
+  }
+}
+
+@mixin button-secondary {
+  @include button-base;
+  background-color: transparent;
+  color: $primary-color;
+  border: 1px solid $primary-color;
+  
+  &:hover {
+    background-color: $primary-color;
+    color: white;
+  }
+}
+
+// 卡片样式混入
+@mixin card-base {
+  background-color: $background-color;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow-md;
+  border: 1px solid $border-color;
+  padding: $spacing-md;
+}
+
+// 响应式混入
+@mixin mobile {
+  @media (max-width: 768px) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (min-width: 769px) and (max-width: 1024px) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: 1025px) {
+    @content;
+  }
+} 

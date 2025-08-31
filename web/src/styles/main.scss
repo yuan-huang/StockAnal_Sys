@@ -1,0 +1,69 @@
+// 导入所有样式模块
+@import './variables.scss';
+@import './mixins.scss';
+
+// 全局样式
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: $font-family;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: $text-color;
+  line-height: 1.6;
+}
+
+// 通用工具类
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.mt-1 { margin-top: $spacing-xs; }
+.mt-2 { margin-top: $spacing-sm; }
+.mt-3 { margin-top: $spacing-md; }
+.mt-4 { margin-top: $spacing-lg; }
+.mt-5 { margin-top: $spacing-xl; }
+
+.mb-1 { margin-bottom: $spacing-xs; }
+.mb-2 { margin-bottom: $spacing-sm; }
+.mb-3 { margin-bottom: $spacing-md; }
+.mb-4 { margin-bottom: $spacing-lg; }
+.mb-5 { margin-bottom: $spacing-xl; }
+
+.p-1 { padding: $spacing-xs; }
+.p-2 { padding: $spacing-sm; }
+.p-3 { padding: $spacing-md; }
+.p-4 { padding: $spacing-lg; }
+.p-5 { padding: $spacing-xl; }
+
+// 响应式容器
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 $spacing-md;
+  
+  @include mobile {
+    padding: 0 $spacing-sm;
+  }
+}
+
+// 网格系统
+.row {
+  @include flex-between;
+  flex-wrap: wrap;
+  margin: 0 -$spacing-sm;
+}
+
+.col {
+  flex: 1;
+  padding: 0 $spacing-sm;
+  
+  @include mobile {
+    flex: 100%;
+    margin-bottom: $spacing-md;
+  }
+} 

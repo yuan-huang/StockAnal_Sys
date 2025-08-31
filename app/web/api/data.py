@@ -47,7 +47,9 @@ def get_stock_data(analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_ana
         
         return custom_jsonify({'data': records})
     except Exception as e:
-        app.logger.error(f"获取股票数据时出错: {e}", exc_info=True)
+        # 使用Flask的current_app来获取logger
+        from flask import current_app
+        current_app.logger.error(f"获取股票数据时出错: {e}", exc_info=True)
         return custom_jsonify({'error': str(e)}), 500
 
 @api_blueprint.route('/index_stocks', methods=['GET'])
@@ -72,7 +74,9 @@ def get_index_stocks(cache: Cache = Provide[AnalysisContainer.cache]):
         
         return jsonify({'stock_list': stock_list})
     except Exception as e:
-        app.logger.error(f"获取指数成分股时出错: {e}", exc_info=True)
+        # 使用Flask的current_app来获取logger
+        from flask import current_app
+        current_app.logger.error(f"获取指数成分股时出错: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @api_blueprint.route('/industry_stocks', methods=['GET'])
@@ -88,7 +92,9 @@ def get_industry_stocks(cache: Cache = Provide[AnalysisContainer.cache]):
 
         return jsonify({'stock_list': stock_list})
     except Exception as e:
-        app.logger.error(f"获取行业成分股时出错: {e}", exc_info=True)
+        # 使用Flask的current_app来获取logger
+        from flask import current_app
+        current_app.logger.error(f"获取行业成分股时出错: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @api_blueprint.route('/latest_news', methods=['GET'])
@@ -103,7 +109,9 @@ def get_latest_news(news_fetcher: NewsFetcher = Provide[AnalysisContainer.news_f
         
         return jsonify({'success': True, 'news': news_data})
     except Exception as e:
-        app.logger.error(f"获取最新新闻数据时出错: {e}", exc_info=True)
+        # 使用Flask的current_app来获取logger
+        from flask import current_app
+        current_app.logger.error(f"获取最新新闻数据时出错: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
         
 @api_blueprint.route('/market_indices', methods=['GET'])
@@ -126,7 +134,9 @@ def get_market_indices(cache: Cache = Provide[AnalysisContainer.cache]):
                 'data': df_a[['time', '收盘']].rename(columns={'收盘': 'value'}).to_dict('records')
             }
     except Exception as e:
-        app.logger.warning(f"获取A股指数分时数据失败: {e}")
+        # 使用Flask的current_app来获取logger
+        from flask import current_app
+        current_app.logger.warning(f"获取A股指数分时数据失败: {e}")
         results['A-share'] = {'name': '上证指数', 'error': '获取数据失败'}
 
     # HK-share
