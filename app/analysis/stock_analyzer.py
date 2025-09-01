@@ -874,7 +874,7 @@ class StockAnalyzer:
             news_data['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
             # 缓存结果
-            self.cache.set(cache_key, news_data, ttl=3600)  # 缓存1小时
+            self.cache.set(cache_key, news_data,3600)  # 缓存1小时
             return news_data
 
         except Exception as e:

@@ -50,7 +50,7 @@ class TaskManager:
         task = {
             'id': task_id,
             'name': name,
-            'status': TaskStatus.PENDING.value,
+            'status': TaskStatus.PENDING,
             'progress': 0,
             'result': self._serialize(None),
             'error': self._serialize(None),
@@ -173,7 +173,7 @@ class TaskManager:
             task_data = self.redis_client.hmget(f"task:{task_id}", ['status', 'updated_at'])
             if len(task_data) == 2:
                 task_status, updated_at_iso = task_data
-                if task_status and task_status in [TaskStatus.COMPLETED.value, TaskStatus.FAILED.value, TaskStatus.CANCELLED.value]:
+                if task_status and task_status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
                     try:
                         if updated_at_iso:
                             updated_at = datetime.fromisoformat(updated_at_iso)

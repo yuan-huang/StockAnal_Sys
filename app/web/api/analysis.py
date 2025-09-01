@@ -11,7 +11,15 @@ from app.analysis.stock_qa import StockQA
 from app.analysis.risk_monitor import RiskMonitor
 from app.analysis.index_industry_analyzer import IndexIndustryAnalyzer
 from app.analysis.industry_analyzer import IndustryAnalyzer
+from app.analysis.task_manager import TaskManager
+from app.analysis.task_manager import TaskStatus
+from app.analysis.stock_analyzer import StockAnalyzer
+import logging
+import traceback
+import time
+from datetime import datetime
 
+logger = logging.getLogger(__name__)
 
 # Fundamental Analysis
 @api_blueprint.route('/fundamental_analysis', methods=['POST'])
@@ -111,22 +119,7 @@ def api_scenario_predict(scenario_predictor: ScenarioPredictor = Provide[Analysi
         current_app.logger.error(f"情景预测出错: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
-# QA
-@api_blueprint.route('/qa', methods=['POST'])
-@inject
-def api_qa(stock_qa: StockQA = Provide[AnalysisContainer.stock_qa]):
-    try:
-        data = request.json
-        stock_code = data.get('stock_code')
-        question = data.get('question')
-        market_type = data.get('market_type', 'A')
-        if not stock_code or not question:
-            return jsonify({'error': '请提供股票代码和问题'}), 400
-        result = stock_qa.answer_question(stock_code, question, market_type)
-        return custom_jsonify(result)
-    except Exception as e:
-        current_app.logger.error(f"智能问答出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+
 
 # Risk Analysis
 @api_blueprint.route('/risk_analysis', methods=['POST'])
@@ -223,3 +216,102 @@ def api_industry_compare(index_industry_analyzer: IndexIndustryAnalyzer = Provid
     except Exception as e:
         current_app.logger.error(f"行业比较出错: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+
+
+
+@api_blueprint.route('/agent_analysis_history', methods=['GET'])
+@inject
+def get_agent_analysis_history(task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
+    """获取已完成的智能体分析任务历史"""
+    try:
+        all_tasks = task_manager.get_all_tasks()
+        history = [
+            task for task in all_tasks 
+            if task.get('status') in [TaskStatus.COMPLETED, TaskStatus.FAILED]
+        ]
+        # 按更新时间排序，最新的在前
+        history.sort(key=lambda x: x.get('updated_at', ''), reverse=True)
+        return custom_jsonify({'history': history})
+    except Exception as e:
+        logger.error(f"获取分析历史时出错: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+    
+
+
+@api_blueprint.route('/agent_analysis_status/<task_id>', methods=['GET'])
+@inject
+def get_agent_analysis_status(task_id, task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
+    """获取智能体分析任务的状态"""
+    task = task_manager.get_task(task_id)
+
+    if not task:
+        return jsonify({'error': '找不到指定的智能体分析任务'}), 404
+    
+    # 准备要返回的数据
+    response_data = {
+        'id': task['id'],
+        'status': task['status'],
+        'progress': task.get('progress', 0),
+        'created_at': task['created_at'],
+        'updated_at': task['updated_at'],
+        'params': task.get('params', {})
+    }
+    
+    if 'result' in task:
+         response_data['result'] = task['result']
+    if 'error' in task:
+         response_data['error'] = task['error']
+         
+    return custom_jsonify(response_data)    
+
+
+@api_blueprint.route('/analysis_status/<task_id>', methods=['GET'])
+@inject
+def get_analysis_status(task_id, task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
+    """获取个股分析任务状态"""
+    task = task_manager.get_task(task_id)
+    if not task:
+        return jsonify({'error': '找不到指定的分析任务'}), 404
+
+    # 基本状态信息
+    status = {
+        'id': task['id'],
+        'status': task['status'],
+        'progress': task.get('progress', 0),
+        'created_at': task['created_at'],
+        'updated_at': task['updated_at']
+    }
+
+    # 如果任务完成，包含结果
+    if task['status'] == TaskStatus.COMPLETED and 'result' in task:
+        status['result'] = task['result']
+
+    # 如果任务失败，包含错误信息
+    if task['status'] == TaskStatus.FAILED and 'error' in task:
+        status['error'] = task['error']
+
+    return custom_jsonify(status)
+
+
+@api_blueprint.route('/cancel_analysis/<task_id>', methods=['POST'])
+@inject
+def cancel_analysis(task_id, task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
+    """取消个股分析任务"""
+    task = task_manager.get_task(task_id)
+    if not task:
+        return jsonify({'error': '找不到指定的分析任务'}), 404
+
+    if task['status'] in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
+        return jsonify({'message': '任务已完成或失败，无法取消'})
+
+    # 更新状态为失败
+    task['status'] = TaskStatus.FAILED
+    task['error'] = '用户取消任务'
+    task['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # 更新键索引的任务
+    if 'key' in task and task['key'] in task_manager.get_all_tasks():
+        task_manager.get_all_tasks()[task['key']] = task
+
+    return jsonify({'message': '任务已取消'})

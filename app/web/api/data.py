@@ -13,44 +13,9 @@ from app.analysis.stock_analyzer import StockAnalyzer
 from app.core.cache import Cache
 from app.analysis.news_fetcher import NewsFetcher
 
+import logging
+logger = logging.getLogger(__name__)
 
-@api_blueprint.route('/stock_data', methods=['GET'])
-@inject
-def get_stock_data(analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_analyzer], cache: Cache = Provide[AnalysisContainer.cache]):
-    try:
-        stock_code = request.args.get('stock_code')
-        market_type = request.args.get('market_type', 'A')
-        period = request.args.get('period', '1y')
-
-        if not stock_code:
-            return custom_jsonify({'error': '请提供股票代码'}), 400
-
-        end_date = datetime.now().strftime('%Y%m%d')
-        days_map = {'1m': 30, '3m': 90, '6m': 180, '1y': 365}
-        start_date = (datetime.now() - timedelta(days=days_map.get(period, 365))).strftime('%Y%m%d')
-
-        df = analyzer.get_stock_data(stock_code, market_type, start_date, end_date)
-
-        if df.empty:
-            return custom_jsonify({'error': '未找到股票数据'}), 404
-
-        df = analyzer.calculate_indicators(df)
-        
-        if 'date' in df.columns:
-            if pd.api.types.is_datetime64_any_dtype(df['date']):
-                df['date'] = df['date'].dt.strftime('%Y-%m-%d')
-            else:
-                df['date'] = pd.to_datetime(df['date'], errors='coerce').dt.strftime('%Y-%m-%d')
-
-        df = df.replace({np.nan: None, np.inf: None, -np.inf: None})
-        records = df.to_dict('records')
-        
-        return custom_jsonify({'data': records})
-    except Exception as e:
-        # 使用Flask的current_app来获取logger
-        from flask import current_app
-        current_app.logger.error(f"获取股票数据时出错: {e}", exc_info=True)
-        return custom_jsonify({'error': str(e)}), 500
 
 @api_blueprint.route('/index_stocks', methods=['GET'])
 @inject
@@ -74,9 +39,7 @@ def get_index_stocks(cache: Cache = Provide[AnalysisContainer.cache]):
         
         return jsonify({'stock_list': stock_list})
     except Exception as e:
-        # 使用Flask的current_app来获取logger
-        from flask import current_app
-        current_app.logger.error(f"获取指数成分股时出错: {e}", exc_info=True)
+        logger.logger.error(f"获取指数成分股时出错: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @api_blueprint.route('/industry_stocks', methods=['GET'])
@@ -92,77 +55,107 @@ def get_industry_stocks(cache: Cache = Provide[AnalysisContainer.cache]):
 
         return jsonify({'stock_list': stock_list})
     except Exception as e:
-        # 使用Flask的current_app来获取logger
-        from flask import current_app
-        current_app.logger.error(f"获取行业成分股时出错: {e}", exc_info=True)
+        logger.error(f"获取行业成分股时出错: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
-@api_blueprint.route('/latest_news', methods=['GET'])
-@inject
-def get_latest_news(news_fetcher: NewsFetcher = Provide[AnalysisContainer.news_fetcher]):
-    try:
-        days = int(request.args.get('days', 1))
-        limit = int(request.args.get('limit', 1000))
-        source = request.args.get('source', 'cls')
-        
-        news_data = news_fetcher.get_latest_news(days=days, limit=limit, source=source)
-        
-        return jsonify({'success': True, 'news': news_data})
-    except Exception as e:
-        # 使用Flask的current_app来获取logger
-        from flask import current_app
-        current_app.logger.error(f"获取最新新闻数据时出错: {e}", exc_info=True)
-        return jsonify({'success': False, 'error': str(e)}), 500
+
         
 @api_blueprint.route('/market_indices', methods=['GET'])
 @inject
 def get_market_indices(cache: Cache = Provide[AnalysisContainer.cache]):
-    indices = {
-        'A-share': {'symbol': '000001', 'name': '上证指数'},
-        'HK-share': {'symbol': 'HSI', 'name': '恒生指数'},
-        'US-share': {'symbol': '.INX', 'name': '标普500指数'}
-    }
+    # 获取实时行情数据
     results = {}
-
+    
     # A-share
     try:
-        df_a = ak.index_zh_a_hist_min_em(symbol=indices['A-share']['symbol'], period="1")
+        df_a = ak.stock_zh_index_spot_sina()
         if not df_a.empty:
-            df_a['time'] = pd.to_datetime(df_a['时间']).dt.tz_localize('Asia/Shanghai').astype(np.int64) // 10**6
-            results['A-share'] = {
-                'name': indices['A-share']['name'],
-                'data': df_a[['time', '收盘']].rename(columns={'收盘': 'value'}).to_dict('records')
-            }
+            # 获取上证指数数据（代码通常以'000001'开头）
+            sh_index = df_a[df_a['代码'].str.startswith('sh000001')]
+            if not sh_index.empty:
+                index_info = sh_index.iloc[0]
+                results['A-share'] = {
+                    'name': '上证指数',
+                    'data': {
+                        'code': index_info['代码'],
+                        'name': index_info['名称'],
+                        'latest_price': index_info['最新价'],
+                        'change_amount': index_info['涨跌额'],
+                        'change_percent': index_info['涨跌幅'],
+                        'volume': index_info['成交量'],
+                        'amount': index_info['成交额'],
+                        'high': index_info['最高'],
+                        'low': index_info['最低'],
+                        'open': index_info['今开'],
+                        'prev_close': index_info['昨收']
+                    }
+                }
+            else:
+                results['A-share'] = {'error': '未找到上证指数数据', 'name': '上证指数', 'data': {}}
+        else:
+            results['A-share'] = {'error': 'A股数据为空', 'name': '上证指数', 'data': {}}
+        
     except Exception as e:
-        # 使用Flask的current_app来获取logger
-        from flask import current_app
-        current_app.logger.warning(f"获取A股指数分时数据失败: {e}")
-        results['A-share'] = {'name': '上证指数', 'error': '获取数据失败'}
+        logger.warning(f"获取A股指数数据失败: {e}")
+        results['A-share'] = {'error': '获取数据失败', 'name': '上证指数', 'data': {}}
 
     # HK-share
     try:
-        df_hk = ak.index_hk_hist_min_em(symbol=indices['HK-share']['symbol'])
+        df_hk = ak.stock_hk_index_spot_sina()
         if not df_hk.empty:
-            df_hk['time'] = pd.to_datetime(df_hk['时间']).dt.tz_localize('Asia/Hong_Kong').astype(np.int64) // 10**6
-            results['HK-share'] = {
-                'name': indices['HK-share']['name'],
-                'data': df_hk[['time', '收盘']].rename(columns={'收盘': 'value'}).to_dict('records')
-            }
+            # 获取恒生指数数据
+            hk_index = df_hk[df_hk['代码'].str.contains('HSI', na=False)]
+            if not hk_index.empty:
+                index_info = hk_index.iloc[0]
+                results['HK-share'] = {
+                    'name': '恒生指数',
+                    'data': {
+                        'code': index_info['代码'],
+                        'name': index_info['名称'],
+                        'latest_price': index_info['最新价'],
+                        'change_amount': index_info['涨跌额'],
+                        'change_percent': index_info['涨跌幅'],
+                        'open': index_info['今开'],
+                        'high': index_info['最高'],
+                        'low': index_info['最低'],
+                        'prev_close': index_info['昨收'],
+                        'volume': 0,
+                        'amount': 0
+                    }
+                }
+            else:
+                results['HK-share'] = {'error': '未找到恒生指数数据', 'name': '恒生指数', 'data': {}}
+        else:
+            results['HK-share'] = {'error': '港股数据为空', 'name': '恒生指数', 'data': {}}
+        
     except Exception as e:
-        app.logger.warning(f"获取港股指数分时数据失败: {e}")
-        results['HK-share'] = {'name': '恒生指数', 'error': '获取数据失败'}
+        logger.warning(f"获取港股指数数据失败: {e}")
+        results['HK-share'] = {'error': '获取数据失败', 'name': '恒生指数', 'data': []}
 
     # US-share
     try:
-        df_us = ak.index_us_hist_min_em(symbol=indices['US-share']['symbol'])
+        df_us = ak.index_us_stock_sina(symbol=".INX")
         if not df_us.empty:
-            df_us['time'] = pd.to_datetime(df_us['时间']).dt.tz_localize('America/New_York').astype(np.int64) // 10**6
-            results['US-share'] = {
-                'name': indices['US-share']['name'],
-                'data': df_us[['time', '收盘']].rename(columns={'收盘': 'value'}).to_dict('records')
-            }
+            # 美股数据通常直接返回标普500指数数据
+            if 'close' in df_us.columns:
+                latest_row = df_us.iloc[-1]
+                results['US-share'] = {
+                    'name': '标普500指数',
+                    'data': {
+                        'close': latest_row['close'],
+                        'open': latest_row['open'],
+                        'high': latest_row['high'],
+                        'low': latest_row['low'],
+                        'volume': latest_row['volume']
+                    }
+                }
+            else:
+                results['US-share'] = {'error': '美股数据结构异常', 'name': '标普500指数', 'data': {}}
+        else:
+            results['US-share'] = {'error': '美股数据为空', 'name': '标普500指数', 'data': {}}
+        
     except Exception as e:
-        app.logger.warning(f"获取美股指数分时数据失败: {e}")
-        results['US-share'] = {'name': '标普500指数', 'error': '获取数据失败'}
+        logger.warning(f"获取美股指数数据失败: {e}")
+        results['US-share'] = {'error': '获取数据失败', 'name': '标普500指数', 'data': []}
 
-    return custom_jsonify({'success': True, 'indices': results})
+    return custom_jsonify(results)

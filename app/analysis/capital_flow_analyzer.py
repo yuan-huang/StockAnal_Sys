@@ -5,7 +5,6 @@ import akshare as ak
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from app.core.cache import Cache
 
 
 class CapitalFlowAnalyzer:

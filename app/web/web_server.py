@@ -15,6 +15,7 @@ from app.web.api import api_blueprint
 from app.web.page_router import page_blueprint
 import logging
 from dotenv import load_dotenv, find_dotenv
+from app.analysis.news_fetcher import start_news_scheduler
 
 # 将 tradingagents 目录添加到系统路径
 # 这允许应用从 tradingagents 代码库中导入模块
@@ -39,6 +40,8 @@ analysis_container.wire(modules=[
     'app.web.api.us_stocks',  # 美股模块
     'app.web.api.capital_flow',  # 资金流模块
     'app.web.api.system',  # 系统模块
+    'app.web.api.news',  # 新闻模块
+    'app.web.api.qa',  # 智能问答模块
 ])
 
 # 定义日志格式
@@ -117,7 +120,5 @@ with app.app_context():
     print("应用启动")
     print("="*50)
     print(f"依赖注入容器状态: {analysis_container}")
+    start_news_scheduler()  
 
-if __name__ == '__main__':
-    # 强制禁用Flask的调试模式，以确保日志配置生效
-    app.run(host='0.0.0.0', port=int(os.getenv("PORT", "8888")), debug=False)

@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv, find_dotenv
-
-_ = load_dotenv(find_dotenv())
+load_dotenv(find_dotenv())
 
 from app.web.web_server import app
 

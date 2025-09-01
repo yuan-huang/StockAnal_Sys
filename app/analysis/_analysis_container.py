@@ -23,17 +23,21 @@ class AnalysisContainer(containers.DeclarativeContainer):
     cache = providers.Singleton(_core_container.cache)
     redis_client = providers.Singleton(_core_container.redis_cache)
 
-    capital_flow_analyzer = providers.Singleton(CapitalFlowAnalyzer)
+    capital_flow_analyzer = providers.Singleton(CapitalFlowAnalyzer, cache=cache)
     industry_analyzer = providers.Singleton(IndustryAnalyzer)
+    
     stock_analyzer = providers.Singleton(StockAnalyzer, cache=cache)
-    risk_monitor = providers.Singleton(RiskMonitor)
-    scenario_predictor = providers.Singleton(ScenarioPredictor)
+
+    risk_monitor = providers.Singleton(RiskMonitor,analyzer=stock_analyzer)
+    
+    scenario_predictor = providers.Singleton(ScenarioPredictor,analyzer=stock_analyzer)
+
     news_fetcher = providers.Singleton(NewsFetcher)
     index_industry_analyzer = providers.Singleton(IndexIndustryAnalyzer)
     fundamental_analyzer = providers.Singleton(FundamentalAnalyzer, cache=cache)
     stock_qa = providers.Singleton(StockQA, stock_analyzer=stock_analyzer, cache=cache)
 
-    etf_analyzer = providers.Factory(EtfAnalyzer, stock_analyzer_instance=stock_analyzer)
+    # etf_analyzer = providers.Factory(EtfAnalyzer, stock_analyzer_instance=stock_analyzer)
 
 
     task_manager = providers.Singleton(TaskManager, redis_client=redis_client)
