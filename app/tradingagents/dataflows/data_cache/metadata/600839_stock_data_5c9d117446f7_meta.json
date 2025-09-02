@@ -1,0 +1,11 @@
+{
+  "symbol": "600839",
+  "data_type": "stock_data",
+  "market_type": "china",
+  "start_date": null,
+  "end_date": null,
+  "data_source": "tushare",
+  "file_path": "E:\\TradingAgents-CN\\tradingagents\\dataflows\\data_cache\\china_stocks\\600839_stock_data_5c9d117446f7.csv",
+  "file_format": "csv",
+  "cached_at": "2025-08-04T20:50:55.801256"
+}
