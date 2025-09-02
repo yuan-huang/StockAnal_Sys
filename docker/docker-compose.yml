@@ -75,7 +75,7 @@ services:
   # Redis Commander管理界面
   redis-commander:
     image: ghcr.io/joeferner/redis-commander:latest
-    container_name: stockanal_sys-redis-commander
+    container_name: sys-redis-commander
     restart: unless-stopped
     ports:
       - "8081:8081"
@@ -93,11 +93,11 @@ services:
       start_period: 30s
     profiles:
       - management  # 使用 --profile management 启动
-      
+
   # Mongo Express管理界面 (可选)
   mongo-express:
     image: mongo-express:latest
-    container_name: stockanal_sys-mongo-express
+    container_name: sys-mongo-express
     restart: unless-stopped
     ports:
       - "8082:8081"
@@ -117,7 +117,7 @@ services:
   # pgAdmin管理界面 (可选)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: stockanal_sys-pgadmin
+    container_name: sys-pgadmin
     restart: unless-stopped
     ports:
       - "8083:80"

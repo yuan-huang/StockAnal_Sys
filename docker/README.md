@@ -35,7 +35,7 @@ docker/
 
 ### 3. 启动服务
 
-**启动基础服务 (MongoDB, PostgreSQL, Redis, Redis Commander):**
+**启动基础服务 (MongoDB, PostgreSQL, Redis)**
 ```bash
 cd docker
 docker-compose up -d
