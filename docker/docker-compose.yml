@@ -91,7 +91,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-
+    profiles:
+      - management  # 使用 --profile management 启动
+      
   # Mongo Express管理界面 (可选)
   mongo-express:
     image: mongo-express:latest
