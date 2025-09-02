@@ -42,6 +42,7 @@ analysis_container.wire(modules=[
     'app.web.api.system',  # 系统模块
     'app.web.api.news',  # 新闻模块
     'app.web.api.qa',  # 智能问答模块
+    'app.web.api.agent_analysis',  # 智能体分析模块
 ])
 
 # 定义日志格式

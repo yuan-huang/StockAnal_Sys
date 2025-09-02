@@ -17,6 +17,11 @@ class TaskStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+# 自定义异常，用于任务取消
+class TaskCancelledException(Exception):
+    pass
+
+
 class TaskManager:
     def __init__(self, redis_client):
         self.logger = logging.getLogger(__name__)

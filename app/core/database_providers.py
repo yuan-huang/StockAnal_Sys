@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 def get_mongo_client():
     """获取MongoDB客户端"""
-    host = os.getenv('MONGO_HOST', 'localhost')
-    port = int(os.getenv('MONGO_PORT', 27017))
-    db_name = os.getenv('MONGO_DB_NAME', 'tradingagents')
-    username = os.getenv('MONGO_USER', '')
-    password = os.getenv('MONGO_PASS', '')
+    host = os.getenv('MONGODB_HOST', 'localhost')
+    port = int(os.getenv('MONGODB_PORT', 27017))
+    db_name = os.getenv('MONGODB_DATABASE', 'tradingagents')
+    username = os.getenv('MONGODB_USERNAME', '')
+    password = os.getenv('MONGODB_PASSWORD', '')
     
     # 构建连接URI
     if username and password:

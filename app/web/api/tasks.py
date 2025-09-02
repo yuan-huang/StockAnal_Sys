@@ -68,51 +68,6 @@ def get_active_tasks(task_manager: TaskManager = Provide[AnalysisContainer.task_
     
 
 
-@api_blueprint.route('/delete_agent_analysis', methods=['POST'])
-@inject
-def delete_agent_analysis(task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
-    """Cancel and/or delete one or more agent analysis tasks."""
-    try:
-        data = request.json
-        task_ids = data.get('task_ids', [])
-        if not isinstance(task_ids, list):
-            return jsonify({'error': 'task_ids 必须是一个列表'}), 400
-
-        if not task_ids:
-            return jsonify({'error': '请提供要删除的任务ID'}), 400
-
-        deleted_count = 0
-        cancelled_count = 0
-        
-        for task_id in task_ids:
-            task = task_manager.get_task(task_id)
-            if not task:
-                logger.warning(f"尝试删除一个不存在的任务: {task_id}")
-                continue
-
-            # If the task is running, mark it as cancelled
-            if task.get('status') == TaskStatus.RUNNING:
-                task['status'] = TaskStatus.CANCELLED
-                task['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                task['error'] = '任务已被用户取消'
-                task_manager.update_task(task_id, status=TaskStatus.CANCELLED, error='任务已被用户取消')
-                cancelled_count += 1
-                logger.info(f"任务 {task_id} 已被标记为取消。")
-            
-            # For all other states (or after cancelling), delete the task file
-            if task_manager.delete_task(task_id):
-                deleted_count += 1
-        
-        message = f"请求处理 {len(task_ids)} 个任务。已取消 {cancelled_count} 个运行中的任务，并删除了 {deleted_count} 个任务文件。"
-        logger.info(message)
-        return jsonify({'success': True, 'message': message})
-
-    except Exception as e:
-        logger.error(f"删除分析历史时出错: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
-
-
-
 # Market Scan Task
 @api_blueprint.route('/start_market_scan', methods=['POST'])
 @inject

@@ -216,56 +216,7 @@ def api_industry_compare(index_industry_analyzer: IndexIndustryAnalyzer = Provid
     except Exception as e:
         current_app.logger.error(f"行业比较出错: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
-
-
-
-
-@api_blueprint.route('/agent_analysis_history', methods=['GET'])
-@inject
-def get_agent_analysis_history(task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
-    """获取已完成的智能体分析任务历史"""
-    try:
-        all_tasks = task_manager.get_all_tasks()
-        history = [
-            task for task in all_tasks 
-            if task.get('status') in [TaskStatus.COMPLETED, TaskStatus.FAILED]
-        ]
-        # 按更新时间排序，最新的在前
-        history.sort(key=lambda x: x.get('updated_at', ''), reverse=True)
-        return custom_jsonify({'history': history})
-    except Exception as e:
-        logger.error(f"获取分析历史时出错: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
     
-
-
-@api_blueprint.route('/agent_analysis_status/<task_id>', methods=['GET'])
-@inject
-def get_agent_analysis_status(task_id, task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
-    """获取智能体分析任务的状态"""
-    task = task_manager.get_task(task_id)
-
-    if not task:
-        return jsonify({'error': '找不到指定的智能体分析任务'}), 404
-    
-    # 准备要返回的数据
-    response_data = {
-        'id': task['id'],
-        'status': task['status'],
-        'progress': task.get('progress', 0),
-        'created_at': task['created_at'],
-        'updated_at': task['updated_at'],
-        'params': task.get('params', {})
-    }
-    
-    if 'result' in task:
-         response_data['result'] = task['result']
-    if 'error' in task:
-         response_data['error'] = task['error']
-         
-    return custom_jsonify(response_data)    
-
-
 @api_blueprint.route('/analysis_status/<task_id>', methods=['GET'])
 @inject
 def get_analysis_status(task_id, task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
