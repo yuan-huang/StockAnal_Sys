@@ -1,6 +1,9 @@
 
 # app/web/api/analysis.py
-from flask import request, jsonify, current_app
+from flask_api import request, status
+from flask import Blueprint
+
+from app.web.api import api_blueprint
 from . import api_blueprint
 from app.web.utils import custom_jsonify
 from dependency_injector.wiring import inject, Provide
@@ -24,17 +27,18 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+agent_analysis_bp = Blueprint('agent_analysis', __name__, url_prefix='/agent_analysis')
 
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
 
 # 智能体分析路由
-@api_blueprint.route('/start_agent_analysis', methods=['POST'])
+@agent_analysis_bp.route('/start_agent_analysis', methods=['POST'])
 @inject
 def start_agent_analysis(task_manager: TaskManager = Provide[AnalysisContainer.task_manager], stock_analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_analyzer]):
     """启动智能体分析任务"""
     try:
-        data = request.json
+        data = request.data
         stock_code = data.get('stock_code')
         research_depth = data.get('research_depth', 3)
         market_type = data.get('market_type', 'A')
@@ -44,7 +48,7 @@ def start_agent_analysis(task_manager: TaskManager = Provide[AnalysisContainer.t
         max_output_length = data.get('max_output_length', 2048)
 
         if not stock_code:
-            return jsonify({'error': '请提供股票代码'}), 400
+            return {'error': '请提供股票代码'}, status.HTTP_400_BAD_REQUEST
 
         # 创建新任务
         task = task_manager.create_task(name=f"Agent Analysis for {stock_code}", params={
@@ -124,20 +128,20 @@ def start_agent_analysis(task_manager: TaskManager = Provide[AnalysisContainer.t
         thread.daemon = True
         thread.start()
 
-        return jsonify({
+        return {
             'task_id': task_id,
             'status': 'pending',
             'message': f'已启动对 {stock_code} 的智能体分析'
-        })
+        }
 
     except Exception as e:
         logger.error(f"启动智能体分析时出错: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 
 
-@api_blueprint.route('/agent_analysis_history', methods=['GET'])
+@agent_analysis_bp.route('/agent_analysis_history', methods=['GET'])
 @inject
 def get_agent_analysis_history(task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """获取已完成的智能体分析任务历史"""
@@ -152,17 +156,17 @@ def get_agent_analysis_history(task_manager: TaskManager = Provide[AnalysisConta
         return custom_jsonify({'history': history})
     except Exception as e:
         logger.error(f"获取分析历史时出错: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
-@api_blueprint.route('/agent_analysis_status/<task_id>', methods=['GET'])
+@agent_analysis_bp.route('/agent_analysis_status/<task_id>', methods=['GET'])
 @inject
 def get_agent_analysis_status(task_id, task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """获取智能体分析任务的状态"""
     task = task_manager.get_task(task_id)
 
     if not task:
-        return jsonify({'error': '找不到指定的智能体分析任务'}), 404
+        return {'error': '找不到指定的智能体分析任务'}, status.HTTP_404_NOT_FOUND
     
     # 准备要返回的数据
     response_data = {
@@ -185,18 +189,18 @@ def get_agent_analysis_status(task_id, task_manager: TaskManager = Provide[Analy
 
 
 
-@api_blueprint.route('/delete_agent_analysis', methods=['POST'])
+@agent_analysis_bp.route('/delete_agent_analysis', methods=['POST'])
 @inject
 def _delete_agent_analysis(task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """Cancel and/or delete one or more agent analysis tasks."""
     try:
-        data = request.json
+        data = request.data
         task_ids = data.get('task_ids', [])
         if not isinstance(task_ids, list):
-            return jsonify({'error': 'task_ids 必须是一个列表'}), 400
+            return {'error': 'task_ids 必须是一个列表'}, status.HTTP_400_BAD_REQUEST
 
         if not task_ids:
-            return jsonify({'error': '请提供要删除的任务ID'}), 400
+            return {'error': '请提供要删除的任务ID'}, status.HTTP_400_BAD_REQUEST
 
         deleted_count = 0
         cancelled_count = 0
@@ -222,9 +226,9 @@ def _delete_agent_analysis(task_manager: TaskManager = Provide[AnalysisContainer
         
         message = f"请求处理 {len(task_ids)} 个任务。已取消 {cancelled_count} 个运行中的任务，并删除了 {deleted_count} 个任务文件。"
         logger.info(message)
-        return jsonify({'success': True, 'message': message})
+        return {'success': True, 'message': message}
 
     except Exception as e:
         logger.error(f"删除分析历史时出错: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 

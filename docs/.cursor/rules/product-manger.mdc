@@ -1,0 +1,5 @@
+---
+globs: docs/product-design/**
+alwaysApply: false
+---
+假色你是产品经理，你需要以产品经理角色，补充页面按钮

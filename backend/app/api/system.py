@@ -4,14 +4,14 @@
 包含系统重启、配置管理等接口
 """
 
-from flask import Blueprint, request, jsonify
+from flask_api import APIBlueprint, request, status
 import subprocess
 import os
 import traceback
 import logging
 
 # 创建蓝图
-system_blueprint = Blueprint('system', __name__)
+system_blueprint = APIBlueprint('system', __name__)
 
 @system_blueprint.route('/restart_system', methods=['POST'])
 def restart_system():
@@ -23,14 +23,14 @@ def restart_system():
         
         if not os.path.exists(script_path):
             logging.error(f"重启脚本未找到: {script_path}")
-            return jsonify({'success': False, 'error': '重启脚本未找到'}), 500
+            return {'success': False, 'error': '重启脚本未找到'}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
         # 在后台启动重启命令
         subprocess.Popen(['bash', script_path, 'restart'])
         
         logging.info(f"成功执行重启脚本: {script_path} restart")
-        return jsonify({'success': True, 'message': '重启指令已发送'})
+        return {'success': True, 'message': '重启指令已发送'}
 
     except Exception as e:
         logging.error(f"执行重启时发生异常: {traceback.format_exc()}")
-        return jsonify({'success': False, 'error': str(e)}), 500 
+        return {'success': False, 'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR 

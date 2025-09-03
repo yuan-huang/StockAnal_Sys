@@ -1,5 +1,6 @@
 # app/web/api/data.py
-from flask import request, jsonify
+from flask_api import APIBlueprint, request, status
+from app.web.api import api_blueprint
 from . import api_blueprint
 from app.web.utils import custom_jsonify
 import akshare as ak
@@ -32,15 +33,15 @@ def get_index_stocks(cache: Cache = Provide[AnalysisContainer.cache]):
         
         symbol = index_map.get(index_code)
         if not symbol:
-            return jsonify({'error': '不支持的指数代码'}), 400
+            return {'error': '不支持的指数代码'}, status.HTTP_400_BAD_REQUEST
             
         stocks = ak.index_stock_cons_weight_csindex(symbol=symbol)
         stock_list = stocks['成分券代码'].tolist() if '成分券代码' in stocks.columns else []
         
-        return jsonify({'stock_list': stock_list})
+        return {'stock_list': stock_list}
     except Exception as e:
         logger.logger.error(f"获取指数成分股时出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 @api_blueprint.route('/industry_stocks', methods=['GET'])
 @inject
@@ -48,15 +49,15 @@ def get_industry_stocks(cache: Cache = Provide[AnalysisContainer.cache]):
     try:
         industry = request.args.get('industry')
         if not industry:
-            return jsonify({'error': '请提供行业名称'}), 400
+            return {'error': '请提供行业名称'}, status.HTTP_400_BAD_REQUEST
         
         stocks = ak.stock_board_industry_cons_em(symbol=industry)
         stock_list = stocks['代码'].tolist() if '代码' in stocks.columns else []
 
-        return jsonify({'stock_list': stock_list})
+        return {'stock_list': stock_list}
     except Exception as e:
         logger.error(f"获取行业成分股时出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
         
@@ -158,4 +159,4 @@ def get_market_indices(cache: Cache = Provide[AnalysisContainer.cache]):
         logger.warning(f"获取美股指数数据失败: {e}")
         results['US-share'] = {'error': '获取数据失败', 'name': '标普500指数', 'data': []}
 
-    return custom_jsonify(results)
+    return results      

@@ -4,9 +4,10 @@
 包含股票分析、增强分析等接口
 """
 
-from flask import request, jsonify
+from flask_api import request, status
 import time
 import logging
+import traceback
 from app.analysis.stock_analyzer import StockAnalyzer
 from app.analysis.task_manager import TaskStatus, TaskManager
 from app.analysis._analysis_container import AnalysisContainer
@@ -26,12 +27,12 @@ logger = logging.getLogger(__name__)
 def start_stock_analysis(analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_analyzer], task_manager: TaskManager = Provide[AnalysisContainer.task_manager]):
     """Starts an asynchronous stock analysis task."""
     try:
-        data = request.json
+        data = request.data
         stock_code = data.get('stock_code')
         market_type = data.get('market_type', 'A')
 
         if not stock_code:
-            return jsonify({'error': 'Stock code is required'}), 400
+            return {'error': 'Stock code is required'}, status.HTTP_400_BAD_REQUEST
 
         task_params = {'stock_code': stock_code, 'market_type': market_type}
         task = task_manager.create_task(name=f"Analysis for {stock_code}", params=task_params)
@@ -47,10 +48,10 @@ def start_stock_analysis(analyzer: StockAnalyzer = Provide[AnalysisContainer.sto
             task_manager.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
 
 
-        return jsonify({'task_id': task_id}), 202
+        return {'task_id': task_id}, status.HTTP_202_ACCEPTED
     except Exception as e:
         logger.error(f"Failed to start stock analysis task: {e}", exc_info=True)
-        return jsonify({'error': 'Internal server error'}), 500
+        return {'error': 'Internal server error'}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 
@@ -63,7 +64,7 @@ def get_stock_analysis_data(analyzer: StockAnalyzer = Provide[AnalysisContainer.
         period = request.args.get('period', '1y')
 
         if not stock_code:
-            return custom_jsonify({'error': '请提供股票代码'}), 400
+            return custom_jsonify({'error': '请提供股票代码'}), status.HTTP_400_BAD_REQUEST
 
         end_date = datetime.now().strftime('%Y%m%d')
         days_map = {'1m': 30, '3m': 90, '6m': 180, '1y': 365}
@@ -72,7 +73,7 @@ def get_stock_analysis_data(analyzer: StockAnalyzer = Provide[AnalysisContainer.
         df = analyzer.get_stock_data(stock_code, market_type, start_date, end_date)
 
         if df.empty:
-            return custom_jsonify({'error': '未找到股票数据'}), 404
+            return custom_jsonify({'error': '未找到股票数据'}), status.HTTP_404_NOT_FOUND
 
         df = analyzer.calculate_indicators(df)
         
@@ -88,7 +89,7 @@ def get_stock_analysis_data(analyzer: StockAnalyzer = Provide[AnalysisContainer.
         return custom_jsonify({'data': records})
     except Exception as e:
         logger.error(f"获取股票数据时出错: {e}", exc_info=True)
-        return custom_jsonify({'error': str(e)}), 500
+        return custom_jsonify({'error': str(e)}), status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 
@@ -99,12 +100,12 @@ def get_stock_analysis_data(analyzer: StockAnalyzer = Provide[AnalysisContainer.
 @inject
 def stock_analyze(stock_analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_analyzer]):
     try:
-        data = request.json
+        data = request.data
         stock_codes = data.get('stock_codes', [])
         market_type = data.get('market_type', 'A')
 
         if not stock_codes:
-            return jsonify({'error': '请输入代码'}), 400
+            return {'error': '请输入代码'}, status.HTTP_400_BAD_REQUEST
 
         logger.info(f"分析股票请求: {stock_codes}, 市场类型: {market_type}")
 
@@ -137,10 +138,10 @@ def stock_analyze(stock_analyzer: StockAnalyzer = Provide[AnalysisContainer.stoc
                     'industry': '未知'
                 })
 
-        return jsonify({'results': results})
+        return {'results': results}
     except Exception as e:
         logger.error(f"分析股票时出错: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
     
 
 
@@ -151,22 +152,46 @@ def stock_analyze(stock_analyzer: StockAnalyzer = Provide[AnalysisContainer.stoc
 def enhanced_analysis(analyzer: StockAnalyzer = Provide[AnalysisContainer.stock_analyzer]):
     """原增强分析API的向后兼容版本 - 功能重构中"""
     try:
-        data = request.json
+        data = request.data
         stock_code = data.get('stock_code')
         market_type = data.get('market_type', 'A')
 
         if not stock_code:
-            return jsonify({'error': '请输入股票代码'}), 400
+            return {'error': '请输入股票代码'}, status.HTTP_400_BAD_REQUEST
 
         # 暂时使用基础分析功能
         try:
             result = analyzer.quick_analyze_stock(stock_code, market_type)
             logging.info(f"基础分析完成: {stock_code}")
-            return jsonify({'result': result})
+            return {'result': result}
         except Exception as e:
             logging.error(f"分析过程中出错: {str(e)}")
-            return jsonify({'error': f'分析过程中出错: {str(e)}'}), 500
+            return {'error': f'分析过程中出错: {str(e)}'}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
     except Exception as e:
         logging.error(f"执行分析时出错: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500 
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR 
+    
+
+
+
+
+
+# Scenario Prediction
+@api_blueprint.route('/scenario_predict', methods=['POST'])
+@inject
+def api_scenario_predict(scenario_predictor: ScenarioPredictor = Provide[AnalysisContainer.scenario_predictor]):
+    """股票预测"""
+    try:
+        data = request.data
+        stock_code = data.get('stock_code')
+        market_type = data.get('market_type', 'A')
+        days = data.get('days', 60)
+        if not stock_code:
+            return {'error': '请提供股票代码'}, status.HTTP_400_BAD_REQUEST
+        result = scenario_predictor.generate_scenarios(stock_code, market_type, days)
+        return custom_jsonify(result)
+    except Exception as e:
+        current_app.logger.error(f"情景预测出错: {e}", exc_info=True)
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
+

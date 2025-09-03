@@ -1,6 +1,7 @@
 # app/web/api/analysis.py
-from flask import request, jsonify, current_app
-from . import api_blueprint
+from flask_api import APIBlueprint, request, status
+from flask import Blueprint
+from app.web.api import api_blueprint
 from app.web.utils import custom_jsonify
 from dependency_injector.wiring import inject, Provide
 from app.analysis.fundamental_analyzer import FundamentalAnalyzer
@@ -21,20 +22,23 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+fundamental_analysis_bp = Blueprint('analysis', __name__, url_prefix='/analysis')
+
+
 # Fundamental Analysis
 @api_blueprint.route('/fundamental_analysis', methods=['POST'])
 @inject
 def api_fundamental_analysis(fundamental_analyzer: FundamentalAnalyzer = Provide[AnalysisContainer.fundamental_analyzer]):
     try:
-        data = request.json
+        data = request.data
         stock_code = data.get('stock_code')
         if not stock_code:
-            return jsonify({'error': '请提供股票代码'}), 400
+            return {'error': '请提供股票代码'}, status.HTTP_400_BAD_REQUEST
         result = fundamental_analyzer.calculate_fundamental_score(stock_code)
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"基本面分析出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 # Capital Flow Analysis
 @api_blueprint.route('/concept_fund_flow', methods=['GET'])
@@ -46,7 +50,7 @@ def api_concept_fund_flow(capital_flow_analyzer: CapitalFlowAnalyzer = Provide[A
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"Error getting concept fund flow: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 @api_blueprint.route('/individual_fund_flow_rank', methods=['GET'])
 @inject
@@ -57,7 +61,7 @@ def api_individual_fund_flow_rank(capital_flow_analyzer: CapitalFlowAnalyzer = P
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"Error getting individual fund flow ranking: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 @api_blueprint.route('/individual_fund_flow', methods=['GET'])
 @inject
@@ -67,12 +71,12 @@ def api_individual_fund_flow(capital_flow_analyzer: CapitalFlowAnalyzer = Provid
         market_type = request.args.get('market_type', '')
         re_date = request.args.get('period-select')
         if not stock_code:
-            return jsonify({'error': 'Stock code is required'}), 400
+            return {'error': 'Stock code is required'}, status.HTTP_400_BAD_REQUEST
         result = capital_flow_analyzer.get_individual_fund_flow(stock_code, market_type, re_date)
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"Error getting individual fund flow: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 @api_blueprint.route('/sector_stocks', methods=['GET'])
 @inject
@@ -80,12 +84,12 @@ def api_sector_stocks(capital_flow_analyzer: CapitalFlowAnalyzer = Provide[Analy
     try:
         sector = request.args.get('sector')
         if not sector:
-            return jsonify({'error': 'Sector name is required'}), 400
+            return {'error': 'Sector name is required'}, status.HTTP_400_BAD_REQUEST
         result = capital_flow_analyzer.get_sector_stocks(sector)
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"Error getting sector stocks: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 @api_blueprint.route('/capital_flow', methods=['POST'])
 @inject
@@ -95,29 +99,29 @@ def api_capital_flow(capital_flow_analyzer: CapitalFlowAnalyzer = Provide[Analys
         stock_code = data.get('stock_code')
         market_type = data.get('market_type', '')
         if not stock_code:
-            return jsonify({'error': 'Stock code is required'}), 400
+            return {'error': 'Stock code is required'}, status.HTTP_400_BAD_REQUEST
         result = capital_flow_analyzer.calculate_capital_flow_score(stock_code, market_type)
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"Error calculating capital flow score: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 # Scenario Prediction
 @api_blueprint.route('/scenario_predict', methods=['POST'])
 @inject
 def api_scenario_predict(scenario_predictor: ScenarioPredictor = Provide[AnalysisContainer.scenario_predictor]):
     try:
-        data = request.json
+        data = request.data
         stock_code = data.get('stock_code')
         market_type = data.get('market_type', 'A')
         days = data.get('days', 60)
         if not stock_code:
-            return jsonify({'error': '请提供股票代码'}), 400
+            return {'error': '请提供股票代码'}, status.HTTP_400_BAD_REQUEST
         result = scenario_predictor.generate_scenarios(stock_code, market_type, days)
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"情景预测出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 
@@ -126,30 +130,30 @@ def api_scenario_predict(scenario_predictor: ScenarioPredictor = Provide[Analysi
 @inject
 def api_risk_analysis(risk_monitor: RiskMonitor = Provide[AnalysisContainer.risk_monitor]):
     try:
-        data = request.json
+        data = request.data
         stock_code = data.get('stock_code')
         market_type = data.get('market_type', 'A')
         if not stock_code:
-            return jsonify({'error': '请提供股票代码'}), 400
+            return {'error': '请提供股票代码'}, status.HTTP_400_BAD_REQUEST
         result = risk_monitor.analyze_stock_risk(stock_code, market_type)
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"风险分析出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 @api_blueprint.route('/portfolio_risk', methods=['POST'])
 @inject
 def api_portfolio_risk(risk_monitor: RiskMonitor = Provide[AnalysisContainer.risk_monitor]):
     try:
-        data = request.json
+        data = request.data
         portfolio = data.get('portfolio', [])
         if not portfolio:
-            return jsonify({'error': '请提供投资组合'}), 400
+            return {'error': '请提供投资组合'}, status.HTTP_400_BAD_REQUEST
         result = risk_monitor.analyze_portfolio_risk(portfolio)
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"投资组合风险分析出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 # Index and Industry Analysis
 @api_blueprint.route('/index_analysis', methods=['GET'])
@@ -159,12 +163,12 @@ def api_index_analysis(index_industry_analyzer: IndexIndustryAnalyzer = Provide[
         index_code = request.args.get('index_code')
         limit = int(request.args.get('limit', 30))
         if not index_code:
-            return jsonify({'error': '请提供指数代码'}), 400
+            return {'error': '请提供指数代码'}, status.HTTP_400_BAD_REQUEST
         result = index_industry_analyzer.analyze_index(index_code, limit)
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"指数分析出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 @api_blueprint.route('/industry_analysis', methods=['GET'])
 @inject
@@ -173,12 +177,12 @@ def api_industry_analysis(index_industry_analyzer: IndexIndustryAnalyzer = Provi
         industry = request.args.get('industry')
         limit = int(request.args.get('limit', 30))
         if not industry:
-            return jsonify({'error': '请提供行业名称'}), 400
+            return {'error': '请提供行业名称'}, status.HTTP_400_BAD_REQUEST
         result = index_industry_analyzer.analyze_industry(industry, limit)
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"行业分析出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
         
 @api_blueprint.route('/industry_fund_flow', methods=['GET'])
 @inject
@@ -189,7 +193,7 @@ def api_industry_fund_flow(industry_analyzer: IndustryAnalyzer = Provide[Analysi
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"获取行业资金流向数据出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 @api_blueprint.route('/industry_detail', methods=['GET'])
 @inject
@@ -197,14 +201,14 @@ def api_industry_detail(industry_analyzer: IndustryAnalyzer = Provide[AnalysisCo
     try:
         industry = request.args.get('industry')
         if not industry:
-            return jsonify({'error': '请提供行业名称'}), 400
+            return {'error': '请提供行业名称'}, status.HTTP_400_BAD_REQUEST
         result = industry_analyzer.get_industry_detail(industry)
         if not result:
-            return jsonify({'error': f'未找到行业 {industry} 的详细信息'}), 404
+            return {'error': f'未找到行业 {industry} 的详细信息'}, status.HTTP_404_NOT_FOUND
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"获取行业详细信息出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 @api_blueprint.route('/industry_compare', methods=['GET'])
 @inject
@@ -215,7 +219,7 @@ def api_industry_compare(index_industry_analyzer: IndexIndustryAnalyzer = Provid
         return custom_jsonify(result)
     except Exception as e:
         current_app.logger.error(f"行业比较出错: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return {'error': str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
     
 @api_blueprint.route('/analysis_status/<task_id>', methods=['GET'])
 @inject
@@ -223,7 +227,7 @@ def get_analysis_status(task_id, task_manager: TaskManager = Provide[AnalysisCon
     """获取个股分析任务状态"""
     task = task_manager.get_task(task_id)
     if not task:
-        return jsonify({'error': '找不到指定的分析任务'}), 404
+        return {'error': '找不到指定的分析任务'}, status.HTTP_404_NOT_FOUND
 
     # 基本状态信息
     status = {
@@ -251,10 +255,10 @@ def cancel_analysis(task_id, task_manager: TaskManager = Provide[AnalysisContain
     """取消个股分析任务"""
     task = task_manager.get_task(task_id)
     if not task:
-        return jsonify({'error': '找不到指定的分析任务'}), 404
+        return {'error': '找不到指定的分析任务'}, status.HTTP_404_NOT_FOUND
 
     if task['status'] in [TaskStatus.COMPLETED, TaskStatus.FAILED]:
-        return jsonify({'message': '任务已完成或失败，无法取消'})
+        return {'message': '任务已完成或失败，无法取消'}
 
     # 更新状态为失败
     task['status'] = TaskStatus.FAILED
@@ -265,4 +269,4 @@ def cancel_analysis(task_id, task_manager: TaskManager = Provide[AnalysisContain
     if 'key' in task and task['key'] in task_manager.get_all_tasks():
         task_manager.get_all_tasks()[task['key']] = task
 
-    return jsonify({'message': '任务已取消'})
+    return {'message': '任务已取消'}
